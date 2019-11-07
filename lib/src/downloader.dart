@@ -138,7 +138,7 @@ class FlutterDownloader {
     }
     try {
       List<String> taskIds = await _channel.invokeMethod('enqueueItems', {
-        'downloads': downloads.map((item) => item.toMap()),
+        'downloads': downloads.map((item) => item.toMap()).toList(),
         'headers': headerBuilder.toString(),
         'show_notification': showNotification,
         'open_file_from_notification': openFileFromNotification,
