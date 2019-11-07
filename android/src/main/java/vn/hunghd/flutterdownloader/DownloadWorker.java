@@ -366,6 +366,7 @@ public class DownloadWorker extends Worker implements MethodChannel.MethodCallHa
                         }
                     }
                 }
+                Log.d(TAG, "===> updateNotification: (filename: " + filename + ", status: " + status + ")");
                 updateNotification(context, filename, status, progress, pendingIntent);
                 taskDao.updateTask(getId().toString(), status, progress);
 

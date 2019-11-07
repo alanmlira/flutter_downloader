@@ -103,7 +103,10 @@ class FlutterDownloader {
   ///
   /// **parameters:**
   ///
-  /// * `urls`: download links
+  /// * `downloads`: download items containing link, absolute path of the directory
+  /// where downloaded file is saved, name of downloaded file. If this parameter
+  /// is not set, the plugin will try to extract a file name from HTTP headers
+  /// response or `url`
   /// * `headers`: HTTP headers
   /// * `showNotification`: sets `true` to show a notification displaying the
   /// download progress (only Android), otherwise, `false` value will disable
@@ -125,7 +128,6 @@ class FlutterDownloader {
       bool openFileFromNotification = true,
       bool requiresStorageNotLow = true}) async {
     assert(_initialized, 'FlutterDownloader.initialize() must be called first');
-    // assert(Directory(savedDir).existsSync());
 
     StringBuffer headerBuilder = StringBuffer();
     if (headers != null) {
