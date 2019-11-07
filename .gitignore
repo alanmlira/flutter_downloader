@@ -7,3 +7,13 @@ pubspec.lock
 
 build/
 .idea/
+
+android/.classpath
+android/.project
+android/.settings
+android/.settings/
+android/example/.classpath
+android/example/.project
+android/example/.settings
+android/example/.settings/
+example/ios/Flutter/flutter_export_environment.sh
