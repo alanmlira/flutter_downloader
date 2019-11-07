@@ -23,6 +23,7 @@
 #define KEY_OPEN_FILE_FROM_NOTIFICATION @"open_file_from_notification"
 #define KEY_QUERY @"query"
 #define KEY_TIME_CREATED @"time_created"
+#define KEY_DOWNLOADS @"downloads"
 
 #define NULL_VALUE @"<null>"
 
@@ -544,6 +545,48 @@ static BOOL initialized = NO;
     [self sendUpdateProgressForTaskId:taskId inStatus:@(STATUS_ENQUEUED) andProgress:@0];
 }
 
+- (void)enqueueItemsMethodCall:(FlutterMethodCall*)call result:(FlutterResult)result {
+    NSArray *downloads = call.arguments[KEY_DOWNLOADS];
+
+    NSString *shortSavedDir = [self shortenSavedDirPath:savedDir];
+    NSString *headers = call.arguments[KEY_HEADERS];
+    NSNumber *showNotification = call.arguments[KEY_SHOW_NOTIFICATION];
+    NSNumber *openFileFromNotification = call.arguments[KEY_OPEN_FILE_FROM_NOTIFICATION];
+
+    NSMutableArray *taskIds = [[NSMutableArray alloc] init];
+    for (int i = 0; i < [downloads count]; i++) {
+        NSDictionary* downloadDict = [downloads objectAtIndex:i];
+
+        NSString *urlString = downloadDict[KEY_URL];
+        NSString *savedDir = downloadDict[KEY_SAVED_DIR];
+        NSString *fileName = downloadDict[KEY_FILE_NAME];
+
+        NSURLSessionDownloadTask *task = [self downloadTaskWithURL:[NSURL URLWithString:urlString] fileName:fileName andSavedDir:savedDir andHeaders:headers];
+
+        NSString *taskId = [self identifierForTask:task];
+
+        [_runningTaskById setObject: [NSMutableDictionary dictionaryWithObjectsAndKeys:
+                                        urlString, KEY_URL,
+                                        fileName, KEY_FILE_NAME,
+                                        savedDir, KEY_SAVED_DIR,
+                                        headers, KEY_HEADERS,
+                                        showNotification, KEY_SHOW_NOTIFICATION,
+                                        openFileFromNotification, KEY_OPEN_FILE_FROM_NOTIFICATION,
+                                        @(NO), KEY_RESUMABLE,
+                                        @(STATUS_ENQUEUED), KEY_STATUS,
+                                        @(0), KEY_PROGRESS, nil]
+                                forKey:taskId];
+
+        __typeof__(self) __weak weakSelf = self;
+        dispatch_sync(databaseQueue, ^{
+            [weakSelf addNewTask:taskId url:urlString status:STATUS_ENQUEUED progress:0 filename:fileName savedDir:shortSavedDir headers:headers resumable:NO showNotification: [showNotification boolValue] openFileFromNotification: [openFileFromNotification boolValue]];
+        });
+        [taskIds addObject:taskId];
+        [self sendUpdateProgressForTaskId:taskId inStatus:@(STATUS_ENQUEUED) andProgress:@0];
+    }
+    result(taskIds);
+}
+
 - (void)loadTasksMethodCall:(FlutterMethodCall*)call result:(FlutterResult)result {
     __typeof__(self) __weak weakSelf = self;
     dispatch_sync(databaseQueue, ^{
@@ -755,6 +798,8 @@ static BOOL initialized = NO;
         [self registerCallbackMethodCall:call result:result];
     } else if ([@"enqueue" isEqualToString:call.method]) {
         [self enqueueMethodCall:call result:result];
+    } else if ([@"enqueueItems" isEqualToString:call.method]) {
+        [self enqueueItemsMethodCall:call result:result];
     } else if ([@"loadTasks" isEqualToString:call.method]) {
         [self loadTasksMethodCall:call result:result];
     } else if ([@"loadTasksWithRawQuery" isEqualToString:call.method]) {
