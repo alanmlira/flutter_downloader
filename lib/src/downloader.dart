@@ -137,15 +137,17 @@ class FlutterDownloader {
       headerBuilder.write('}');
     }
     try {
-      List<String> taskIds = await _channel.invokeMethod('enqueueItems', {
+      List<dynamic> result = await _channel.invokeMethod('enqueueItems', {
         'downloads': downloads.map((item) => item.toMap()).toList(),
         'headers': headerBuilder.toString(),
         'show_notification': showNotification,
         'open_file_from_notification': openFileFromNotification,
         'requires_storage_not_low': requiresStorageNotLow,
       });
-      print('Download task is enqueued with id($taskIds)');
-      return taskIds;
+      return result.map((taskId) {
+        print('Download task is enqueued with id($taskId)');
+        return taskId as String;
+      });
     } on PlatformException catch (e) {
       print('Download task is failed with reason(${e.message})');
       return null;
