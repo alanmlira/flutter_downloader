@@ -147,7 +147,7 @@ class FlutterDownloader {
       return result.map((taskId) {
         print('Download task is enqueued with id($taskId)');
         return taskId as String;
-      });
+      }).toList();
     } on PlatformException catch (e) {
       print('Download task is failed with reason(${e.message})');
       return null;
