@@ -158,10 +158,11 @@ public class FlutterDownloaderPlugin implements MethodCallHandler {
         boolean requiresStorageNotLow = call.argument("requires_storage_not_low");
 
         List<String> taskIds = new ArrayList<>();
-        for (Map<String, String> download : downloads) {
-            String url = download("url");
-            String savedDir = download("saved_dir");
-            String filename = download("file_name");
+
+        for (int i = 0; i < downloads.size(); i++) {
+            String url = downloads.get(i).get("url");
+            String savedDir = downloads.get(i).get("saved_dir");
+            String filename = downloads.get(i).get("file_name");
 
             WorkRequest request = buildRequest(url, savedDir, filename, headers, showNotification,
                     openFileFromNotification, false, requiresStorageNotLow);
