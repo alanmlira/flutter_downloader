@@ -548,7 +548,6 @@ static BOOL initialized = NO;
 - (void)enqueueItemsMethodCall:(FlutterMethodCall*)call result:(FlutterResult)result {
     NSArray *downloads = call.arguments[KEY_DOWNLOADS];
 
-    NSString *shortSavedDir = [self shortenSavedDirPath:savedDir];
     NSString *headers = call.arguments[KEY_HEADERS];
     NSNumber *showNotification = call.arguments[KEY_SHOW_NOTIFICATION];
     NSNumber *openFileFromNotification = call.arguments[KEY_OPEN_FILE_FROM_NOTIFICATION];
@@ -559,6 +558,7 @@ static BOOL initialized = NO;
 
         NSString *urlString = downloadDict[KEY_URL];
         NSString *savedDir = downloadDict[KEY_SAVED_DIR];
+        NSString *shortSavedDir = [self shortenSavedDirPath:savedDir];
         NSString *fileName = downloadDict[KEY_FILE_NAME];
 
         NSURLSessionDownloadTask *task = [self downloadTaskWithURL:[NSURL URLWithString:urlString] fileName:fileName andSavedDir:savedDir andHeaders:headers];
