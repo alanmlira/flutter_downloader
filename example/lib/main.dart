@@ -125,7 +125,7 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 
   @override
-  void dispose(){
+  void dispose() {
     _unbindBackgroundIsolate();
     super.dispose();
   }
@@ -187,12 +187,18 @@ class _MyHomePageState extends State<MyHomePage> {
                                 ? new Container(
                                     padding: const EdgeInsets.symmetric(
                                         horizontal: 16.0, vertical: 8.0),
-                                    child: Text(
-                                      item.name,
-                                      style: TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                          color: Colors.blue,
-                                          fontSize: 18.0),
+                                    child: Row(
+                                      children: <Widget>[
+                                        Expanded(
+                                          child: Text(
+                                            item.name,
+                                            style: TextStyle(
+                                                fontWeight: FontWeight.bold,
+                                                color: Colors.blue,
+                                                fontSize: 18.0),
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                   )
                                 : new Container(
