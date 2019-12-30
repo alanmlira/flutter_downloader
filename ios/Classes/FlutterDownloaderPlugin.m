@@ -835,7 +835,7 @@ static BOOL initialized = NO;
     for (NSString* key in _runningTaskById) {
         NSLog(@"applicationWillTerminate - _runningTaskById[key]: %@", _runningTaskById[key]);
         NSLog(@"applicationWillTerminate - _runningTaskById[key][KEY_STATUS]: %@", _runningTaskById[key][KEY_STATUS]);
-        if (_runningTaskById[key][KEY_STATUS] != null && [_runningTaskById[key][KEY_STATUS] intValue] < STATUS_COMPLETE) {
+        if (_runningTaskById[key][KEY_STATUS] != nil && [_runningTaskById[key][KEY_STATUS] intValue] < STATUS_COMPLETE) {
             [self updateTask:key status:STATUS_CANCELED progress:-1];
         }
     }
