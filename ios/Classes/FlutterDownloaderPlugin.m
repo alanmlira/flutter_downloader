@@ -832,20 +832,12 @@ static BOOL initialized = NO;
 - (void)applicationWillTerminate:(nonnull UIApplication *)application
 {
     NSLog(@"applicationWillTerminate:");
-    @try {
-        for (NSString* key in _runningTaskById) {
-            @try {
-                if ([_runningTaskById[key][KEY_STATUS] intValue] < STATUS_COMPLETE) {
-                    [self updateTask:key status:STATUS_CANCELED progress:-1];
-                }
-            }
-            @catch (NSException *exception) {
-                NSLog(@"%@", exception.reason);
-            }
+    for (NSString* key in _runningTaskById) {
+        NSLog(@"applicationWillTerminate - _runningTaskById[key]: %@", _runningTaskById[key]);
+        NSLog(@"applicationWillTerminate - _runningTaskById[key][KEY_STATUS]: %@", _runningTaskById[key][KEY_STATUS]);
+        if (_runningTaskById[key][KEY_STATUS] != null && [_runningTaskById[key][KEY_STATUS] intValue] < STATUS_COMPLETE) {
+            [self updateTask:key status:STATUS_CANCELED progress:-1];
         }
-    }
-    @catch (NSException *exception) {
-        NSLog(@"%@", exception.reason);
     }
     
     _session = nil;
