@@ -32,6 +32,8 @@
 
 #define STEP_UPDATE 10
 
+static BOOL backgroundIsolateRun = NO;
+
 @interface FlutterDownloaderPlugin()<NSURLSessionTaskDelegate, NSURLSessionDownloadDelegate, UIDocumentInteractionControllerDelegate>
 {
     FlutterEngine *_headlessRunner;
@@ -777,10 +779,11 @@ static BOOL initialized = NO;
 
 + (void)registerWithRegistrar:(NSObject<FlutterPluginRegistrar>*)registrar {
     @synchronized(self) {
-        if (instance == nil) {
+        if (instance == nil && !backgroundIsolateRun) {
             instance = [[FlutterDownloaderPlugin alloc] init:registrar];
             [registrar addApplicationDelegate: instance];
         }
+        backgroundIsolateRun = YES;
     }
 }
 
