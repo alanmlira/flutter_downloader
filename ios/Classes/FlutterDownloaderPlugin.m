@@ -123,8 +123,14 @@ static BOOL initialized = NO;
     // with the runner in order for them to work on the background isolate. `registerPlugins` is
     // a callback set from AppDelegate.m in the main application. This callback should register
     // all relevant plugins (excluding those which require UI).
-    registerPlugins(_headlessRunner);
+
+    NSLog(@"=======> [2] backgroundIsolate: %d", backgroundIsolateRun);
+    if (!backgroundIsolateRun) {
+        registerPlugins(_headlessRunner);
+        NSLog(@"=======> [3] backgroundIsolate: %d", backgroundIsolateRun);
+    }
     [_registrar addMethodCallDelegate:self channel:_callbackChannel];
+    backgroundIsolateRun = YES;
 }
 
 - (FlutterMethodChannel *)channel {
@@ -779,11 +785,11 @@ static BOOL initialized = NO;
 
 + (void)registerWithRegistrar:(NSObject<FlutterPluginRegistrar>*)registrar {
     @synchronized(self) {
-        if (instance == nil && !backgroundIsolateRun) {
+        NSLog(@"=======> [1] backgroundIsolate: %d", backgroundIsolateRun);
+        if (instance == nil) {
             instance = [[FlutterDownloaderPlugin alloc] init:registrar];
             [registrar addApplicationDelegate: instance];
         }
-        backgroundIsolateRun = YES;
     }
 }
 
