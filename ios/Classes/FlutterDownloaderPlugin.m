@@ -32,8 +32,6 @@
 
 #define STEP_UPDATE 10
 
-static BOOL backgroundIsolateRun = NO;
-
 @interface FlutterDownloaderPlugin()<NSURLSessionTaskDelegate, NSURLSessionDownloadDelegate, UIDocumentInteractionControllerDelegate>
 {
     FlutterEngine *_headlessRunner;
@@ -57,6 +55,7 @@ static BOOL backgroundIsolateRun = NO;
 static FlutterDownloaderPlugin *instance = nil;
 static FlutterPluginRegistrantCallback registerPlugins = nil;
 static BOOL initialized = NO;
+static BOOL backgroundIsolateRun = NO;
 
 @synthesize databaseQueue;
 
@@ -124,10 +123,8 @@ static BOOL initialized = NO;
     // a callback set from AppDelegate.m in the main application. This callback should register
     // all relevant plugins (excluding those which require UI).
 
-    NSLog(@"=======> [2] backgroundIsolate: %d", backgroundIsolateRun);
     if (!backgroundIsolateRun) {
         registerPlugins(_headlessRunner);
-        NSLog(@"=======> [3] backgroundIsolate: %d", backgroundIsolateRun);
     }
     [_registrar addMethodCallDelegate:self channel:_callbackChannel];
     backgroundIsolateRun = YES;
@@ -785,7 +782,6 @@ static BOOL initialized = NO;
 
 + (void)registerWithRegistrar:(NSObject<FlutterPluginRegistrar>*)registrar {
     @synchronized(self) {
-        NSLog(@"=======> [1] backgroundIsolate: %d", backgroundIsolateRun);
         if (instance == nil) {
             instance = [[FlutterDownloaderPlugin alloc] init:registrar];
             [registrar addApplicationDelegate: instance];
