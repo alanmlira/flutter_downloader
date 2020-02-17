@@ -1,3 +1,12 @@
+## 1.4.1 - 30.01.2020
+
+* Android: fix bug `ensureInitializationComplete must be called after startInitialization`
+* clarify integration documents
+
+## 1.4.0 - 12.01.2020
+
+* migrate to Android v2 embedding.
+
 ## 1.3.4 - 21.12.2019
 
 * fix bug stuck in Flutter v12.13

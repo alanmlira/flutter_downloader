@@ -102,14 +102,10 @@ public class DownloadWorker extends Worker implements MethodChannel.MethodCallHa
     private void startBackgroundIsolate(Context context) {
         synchronized (isolateStarted) {
             if (backgroundFlutterView == null) {
-                if (BuildConfig.DEBUG && !(getApplicationContext() instanceof PluginRegistrantCallback)) {
-                    throw new AssertionError("The Application must be implemented PluginRegistrantCallback");
-                }
-                PluginRegistrantCallback pluginRegistrantCallback = (PluginRegistrantCallback) getApplicationContext();
-
                 SharedPreferences pref = context.getSharedPreferences(FlutterDownloaderPlugin.SHARED_PREFERENCES_KEY, Context.MODE_PRIVATE);
                 long callbackHandle = pref.getLong(FlutterDownloaderPlugin.CALLBACK_DISPATCHER_HANDLE_KEY, 0);
 
+                FlutterMain.startInitialization(context); // Starts initialization of the native system, if already initialized this does nothing
                 FlutterMain.ensureInitializationComplete(context, null);
 
                 FlutterCallbackInformation callbackInfo = FlutterCallbackInformation.lookupCallbackInformation(callbackHandle);
@@ -120,8 +116,12 @@ public class DownloadWorker extends Worker implements MethodChannel.MethodCallHa
 
                 backgroundFlutterView = new FlutterNativeView(getApplicationContext(), true);
 
-                PluginRegistry registry = backgroundFlutterView.getPluginRegistry();
-                pluginRegistrantCallback.registerWith(registry);
+                /// backward compatibility with V1 embedding
+                if (getApplicationContext() instanceof PluginRegistrantCallback) {
+                    PluginRegistrantCallback pluginRegistrantCallback = (PluginRegistrantCallback) getApplicationContext();
+                    PluginRegistry registry = backgroundFlutterView.getPluginRegistry();
+                    pluginRegistrantCallback.registerWith(registry);
+                }
 
                 FlutterRunArguments args = new FlutterRunArguments();
                 args.bundlePath = FlutterMain.findAppBundlePath(context);
@@ -275,6 +275,7 @@ public class DownloadWorker extends Worker implements MethodChannel.MethodCallHa
                 responseCode = httpConn.getResponseCode();
                 switch (responseCode) {
                     case HttpURLConnection.HTTP_MOVED_PERM:
+                    case HttpURLConnection.HTTP_SEE_OTHER:    
                     case HttpURLConnection.HTTP_MOVED_TEMP:
                         Log.d(TAG, "Response with redirection code");
                         location = httpConn.getHeaderField("Location");

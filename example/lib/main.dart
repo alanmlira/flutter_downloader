@@ -9,6 +9,7 @@ import 'package:permission_handler/permission_handler.dart';
 import 'dart:io';
 
 void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
   await FlutterDownloader.initialize();
 
   runApp(new MyApp());
@@ -499,7 +500,7 @@ class _MyHomePageState extends State<MyHomePage> {
 
     _permissionReady = await _checkPermission();
 
-    _localPath = (await _findLocalPath()) + '/Download';
+    _localPath = (await _findLocalPath()) + Platform.pathSeparator + 'Download';
 
     final savedDir = Directory(_localPath);
     bool hasExisted = await savedDir.exists();
