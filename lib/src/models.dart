@@ -66,6 +66,7 @@ class DownloadTask {
   final String url;
   final String filename;
   final String savedDir;
+  final int timeCreated;
 
   DownloadTask(
       {this.taskId,
@@ -73,9 +74,10 @@ class DownloadTask {
       this.progress,
       this.url,
       this.filename,
-      this.savedDir});
+      this.savedDir,
+      this.timeCreated});
 
   @override
   String toString() =>
-      "DownloadTask(taskId: $taskId, status: $status, progress: $progress, url: $url, filename: $filename, savedDir: $savedDir)";
+      "DownloadTask(taskId: $taskId, status: $status, progress: $progress, url: $url, filename: $filename, savedDir: $savedDir, timeCreated: $timeCreated)";
 }

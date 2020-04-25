@@ -43,6 +43,7 @@ public class FlutterDownloaderPlugin implements MethodCallHandler, FlutterPlugin
     private TaskDao taskDao;
     private Context context;
     private long callbackHandle;
+    private int debugMode;
     private final Object initializationLock = new Object();
 
     @SuppressLint("NewApi")
@@ -101,14 +102,16 @@ public class FlutterDownloaderPlugin implements MethodCallHandler, FlutterPlugin
 
     @Override
     public void onAttachedToEngine(FlutterPluginBinding binding) {
-        onAttachedToEngine(binding.getApplicationContext(), binding.getFlutterEngine().getDartExecutor());
+        onAttachedToEngine(binding.getApplicationContext(), binding.getBinaryMessenger());
     }
 
     @Override
     public void onDetachedFromEngine(FlutterPluginBinding binding) {
         context = null;
-        flutterChannel.setMethodCallHandler(null);
-        flutterChannel = null;
+        if (flutterChannel != null) {
+            flutterChannel.setMethodCallHandler(null);
+            flutterChannel = null;
+        }
     }
 
     private WorkRequest buildRequest(String url, String savedDir, String filename, String headers, boolean showNotification, boolean openFileFromNotification, boolean isResume, boolean requiresStorageNotLow) {
@@ -123,7 +126,10 @@ public class FlutterDownloaderPlugin implements MethodCallHandler, FlutterPlugin
                         .putBoolean(DownloadWorker.ARG_SHOW_NOTIFICATION, showNotification)
                         .putBoolean(DownloadWorker.ARG_OPEN_FILE_FROM_NOTIFICATION, openFileFromNotification)
                         .putBoolean(DownloadWorker.ARG_IS_RESUME, isResume)
-                        .putLong(DownloadWorker.ARG_CALLBACK_HANDLE, callbackHandle).build())
+                        .putLong(DownloadWorker.ARG_CALLBACK_HANDLE, callbackHandle)
+                        .putBoolean(DownloadWorker.ARG_DEBUG, debugMode == 1)
+                        .build()
+                )
                 .build();
         return request;
     }
@@ -139,6 +145,7 @@ public class FlutterDownloaderPlugin implements MethodCallHandler, FlutterPlugin
     private void initialize(MethodCall call, MethodChannel.Result result) {
         List args = (List) call.arguments;
         long callbackHandle = Long.parseLong(args.get(0).toString());
+        debugMode = Integer.parseInt(args.get(1).toString());
 
         SharedPreferences pref = context.getSharedPreferences(SHARED_PREFERENCES_KEY, Context.MODE_PRIVATE);
         pref.edit().putLong(CALLBACK_DISPATCHER_HANDLE_KEY, callbackHandle).apply();
