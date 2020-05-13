@@ -825,6 +825,13 @@ static BOOL debug = YES;
                     }
                 }
             }
+            NSString *savedDir = taskDict[KEY_SAVED_DIR];
+            NSArray *folderContents = [fileManager contentsOfDirectoryAtPath:savedDir error:&error];
+            if (folderContents) {
+                if (folderContents.count == 0) {
+                    [fileManager removeItemAtPath:savedDir error:&error];
+                }
+            }
         }
         result([NSNull null]);
     } else {
