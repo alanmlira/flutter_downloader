@@ -356,10 +356,10 @@ public class DownloadWorker extends Worker implements MethodChannel.MethodCallHa
                 int storage = ContextCompat.checkSelfPermission(getApplicationContext(), android.Manifest.permission.WRITE_EXTERNAL_STORAGE);
                 PendingIntent pendingIntent = null;
                 if (status == DownloadStatus.COMPLETE) {
-                    if (isImageOrVideoFile(contentType) && isExternalStoragePath(saveFilePath)) {
-                        addImageOrVideoToGallery(filename, saveFilePath, getContentTypeWithoutCharset(contentType));
+                    if (isMediaFile(contentType) && isExternalStoragePath(saveFilePath)) {
+                        addMediaToGallery(filename, saveFilePath,
+                                getContentTypeWithoutCharset(contentType));
                     }
-
                     if (clickToOpenDownloadedFile && storage == PackageManager.PERMISSION_GRANTED) {
                         Intent intent = IntentUtils.validatedFileIntent(getApplicationContext(), saveFilePath, contentType);
                         if (intent != null) {
@@ -532,21 +532,22 @@ public class DownloadWorker extends Worker implements MethodChannel.MethodCallHa
         return contentType.split(";")[0].trim();
     }
 
-    private boolean isImageOrVideoFile(String contentType) {
+    private boolean isMediaFile(String contentType) {
         contentType = getContentTypeWithoutCharset(contentType);
-        return (contentType != null && (contentType.startsWith("image/") || contentType.startsWith("video")));
+        return (contentType != null && (contentType.startsWith("image/")
+                || contentType.startsWith("video") || contentType.startsWith("audio")
+                || contentType.contains("octet-stream")));
     }
 
     private boolean isExternalStoragePath(String filePath) {
         File externalStorageDir = Environment.getExternalStorageDirectory();
         return filePath != null && externalStorageDir != null && filePath.startsWith(externalStorageDir.getPath());
     }
-
-    private void addImageOrVideoToGallery(String fileName, String filePath, String contentType) {
+    private void addMediaToGallery(String fileName, String filePath, String contentType) {
         if (contentType != null && filePath != null && fileName != null) {
             if (contentType.startsWith("image/")) {
                 ContentValues values = new ContentValues();
-
+    
                 values.put(MediaStore.Images.Media.TITLE, fileName);
                 values.put(MediaStore.Images.Media.DISPLAY_NAME, fileName);
                 values.put(MediaStore.Images.Media.DESCRIPTION, "");
@@ -554,14 +555,14 @@ public class DownloadWorker extends Worker implements MethodChannel.MethodCallHa
                 values.put(MediaStore.Images.Media.DATE_ADDED, System.currentTimeMillis());
                 values.put(MediaStore.Images.Media.DATE_TAKEN, System.currentTimeMillis());
                 values.put(MediaStore.Images.Media.DATA, filePath);
-
+    
                 log("insert " + values + " to MediaStore");
-
+    
                 ContentResolver contentResolver = getApplicationContext().getContentResolver();
                 contentResolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values);
             } else if (contentType.startsWith("video")) {
                 ContentValues values = new ContentValues();
-
+    
                 values.put(MediaStore.Video.Media.TITLE, fileName);
                 values.put(MediaStore.Video.Media.DISPLAY_NAME, fileName);
                 values.put(MediaStore.Video.Media.DESCRIPTION, "");
@@ -569,11 +570,24 @@ public class DownloadWorker extends Worker implements MethodChannel.MethodCallHa
                 values.put(MediaStore.Video.Media.DATE_ADDED, System.currentTimeMillis());
                 values.put(MediaStore.Video.Media.DATE_TAKEN, System.currentTimeMillis());
                 values.put(MediaStore.Video.Media.DATA, filePath);
-
+    
                 log("insert " + values + " to MediaStore");
-
+    
                 ContentResolver contentResolver = getApplicationContext().getContentResolver();
                 contentResolver.insert(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, values);
+            } else if (contentType.startsWith("audio") || contentType.contains("octet-stream")) {
+                ContentValues values = new ContentValues();
+    
+                values.put(MediaStore.Audio.Media.TITLE, fileName);
+                values.put(MediaStore.Audio.Media.DISPLAY_NAME, fileName);
+                values.put(MediaStore.Audio.Media.MIME_TYPE, "audio/mpeg");
+                values.put(MediaStore.Audio.Media.DATE_ADDED, System.currentTimeMillis());
+                values.put(MediaStore.Audio.Media.DATA, filePath);
+    
+                log("insert " + values + " to MediaStore");
+    
+                ContentResolver contentResolver = getApplicationContext().getContentResolver();
+                contentResolver.insert(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, values);
             }
         }
     }

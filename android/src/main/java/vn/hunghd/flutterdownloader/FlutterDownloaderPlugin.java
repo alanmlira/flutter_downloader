@@ -11,10 +11,12 @@ import java.io.File;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Arrays;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
+import android.net.Uri;
 import androidx.work.BackoffPolicy;
 import androidx.work.Constraints;
 import androidx.work.Data;
@@ -348,14 +350,30 @@ public class FlutterDownloaderPlugin implements MethodCallHandler, FlutterPlugin
             }
             if (shouldDeleteContent) {
                 String filename = task.filename;
+                String extension = "";
+                List<String> audioExtension = Arrays.asList("mp3", "m4a", "ogg");
+
                 if (filename == null) {
                     filename = task.url.substring(task.url.lastIndexOf("/") + 1, task.url.length());
                 }
+                int i = filename.lastIndexOf('.');
+                if (i > 0) {
+                    extension = filename.toLowerCase().substring(i + 1);
+                }
 
                 String saveFilePath = task.savedDir + File.separator + filename;
+                if (audioExtension.contains(extension)) {
+                    Uri rootUri = MediaStore.Audio.Media.getContentUriForPath(saveFilePath);
+                    context.getContentResolver().delete(rootUri,
+                            MediaStore.MediaColumns.DATA + "=?", new String[] {saveFilePath});
+                }
                 File tempFile = new File(saveFilePath);
                 if (tempFile.exists()) {
                     tempFile.delete();
+                }
+                File directory = new File(task.savedDir);
+                if (directory.exists() && directory.isDirectory() && directory.list().length == 0) {
+                    directory.delete();
                 }
             }
             taskDao.deleteTask(taskId);
