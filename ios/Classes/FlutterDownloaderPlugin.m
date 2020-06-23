@@ -64,20 +64,20 @@ static BOOL debug = YES;
     if (self = [super init]) {
         _headlessRunner = [[FlutterEngine alloc] initWithName:@"FlutterDownloaderIsolate" project:nil allowHeadlessExecution:YES];
         _registrar = registrar;
-
+        
         _mainChannel = [FlutterMethodChannel
-                           methodChannelWithName:@"vn.hunghd/downloader"
-                           binaryMessenger:[registrar messenger]];
+                        methodChannelWithName:@"vn.hunghd/downloader"
+                        binaryMessenger:[registrar messenger]];
         [registrar addMethodCallDelegate:self channel:_mainChannel];
-
+        
         _callbackChannel =
         [FlutterMethodChannel methodChannelWithName:@"vn.hunghd/downloader_background"
                                     binaryMessenger:[_headlessRunner binaryMessenger]];
-
+        
         _eventQueue = [[NSMutableArray alloc] init];
-
+        
         NSBundle *frameworkBundle = [NSBundle bundleForClass:FlutterDownloaderPlugin.class];
-
+        
         // initialize Database
         NSURL *bundleUrl = [[frameworkBundle resourceURL] URLByAppendingPathComponent:@"FlutterDownloaderDatabase.bundle"];
         NSBundle *resourceBundle = [NSBundle bundleWithURL:bundleUrl];
@@ -88,7 +88,7 @@ static BOOL debug = YES;
         databaseQueue = dispatch_queue_create("vn.hunghd.flutter_downloader", 0);
         _dbManager = [[DBManager alloc] initWithDatabaseFilePath:dbPath];
         _runningTaskById = [[NSMutableDictionary alloc] init];
-
+        
         // init NSURLSession
         NSBundle *mainBundle = [NSBundle mainBundle];
         NSNumber *maxConcurrentTasks = [mainBundle objectForInfoDictionaryKey:@"FDMaximumConcurrentTasks"];
@@ -104,7 +104,7 @@ static BOOL debug = YES;
         if (debug) {
             NSLog(@"init NSURLSession with id: %@", [[_session configuration] identifier]);
         }
-
+        
         _allFilesDownloadedMsg = [mainBundle objectForInfoDictionaryKey:@"FDAllFilesDownloadedMessage"];
         if (_allFilesDownloadedMsg == nil) {
             _allFilesDownloadedMsg = @"All files have been downloaded";
@@ -113,7 +113,7 @@ static BOOL debug = YES;
             NSLog(@"AllFilesDownloadedMessage: %@", _allFilesDownloadedMsg);
         }
     }
-
+    
     return self;
 }
 
@@ -127,12 +127,12 @@ static BOOL debug = YES;
     NSString *uri = info.callbackLibraryPath;
     [_headlessRunner runWithEntrypoint:entrypoint libraryURI:uri];
     NSAssert(registerPlugins != nil, @"failed to set registerPlugins");
-
+    
     // Once our headless runner has been started, we need to register the application's plugins
     // with the runner in order for them to work on the background isolate. `registerPlugins` is
     // a callback set from AppDelegate.m in the main application. This callback should register
     // all relevant plugins (excluding those which require UI).
-
+    
     if (!backgroundIsolateRun) {
         registerPlugins(_headlessRunner);
     }
@@ -155,7 +155,7 @@ static BOOL debug = YES;
         NSError *jsonError;
         NSData *data = [headers dataUsingEncoding:NSUTF8StringEncoding];
         NSDictionary *json = [NSJSONSerialization JSONObjectWithData:data options:NSJSONReadingMutableContainers error:&jsonError];
-
+        
         for (NSString *key in json) {
             NSString *value = json[key];
             if (debug) {
@@ -166,7 +166,7 @@ static BOOL debug = YES;
     }
     NSURLSessionDownloadTask *task = [[self currentSession] downloadTaskWithRequest:request];
     [task resume];
-
+    
     return task;
 }
 
@@ -205,21 +205,21 @@ static BOOL debug = YES;
                     // Save partial downloaded data to a file
                     NSFileManager *fileManager = [NSFileManager defaultManager];
                     NSURL *destinationURL = [weakSelf fileUrlOf:taskId taskInfo:task downloadTask:download];
-
+                    
                     if ([fileManager fileExistsAtPath:[destinationURL path]]) {
                         [fileManager removeItemAtURL:destinationURL error:nil];
                     }
-
+                    
                     BOOL success = [resumeData writeToURL:destinationURL atomically:YES];
                     if (debug) {
                         NSLog(@"save partial downloaded data to a file: %s", success ? "success" : "failure");
                     }
                 }];
-
+                
                 [weakSelf updateRunningTaskById:taskId progress:progress status:STATUS_PAUSED resumable:YES];
-
+                
                 [weakSelf sendUpdateProgressForTaskId:taskId inStatus:@(STATUS_PAUSED) andProgress:@(progress)];
-
+                
                 dispatch_sync([weakSelf databaseQueue], ^{
                     [weakSelf updateTask:taskId status:STATUS_PAUSED progress:progress resumable:YES];
                 });
@@ -314,7 +314,7 @@ static BOOL debug = YES;
     if (debug) {
         NSLog(@"SuggestedFileName: %@", suggestedFilename);
     }
-
+    
     // check filename, if it is empty then we try to extract it from http response or url path
     if (filename == (NSString*) [NSNull null] || [NULL_VALUE isEqualToString: filename]) {
         if (suggestedFilename) {
@@ -322,24 +322,24 @@ static BOOL debug = YES;
         } else {
             filename = downloadTask.currentRequest.URL.lastPathComponent;
         }
-
+        
         NSMutableDictionary *mutableTask = [taskInfo mutableCopy];
         [mutableTask setObject:filename forKey:KEY_FILE_NAME];
-
+        
         // update taskInfo
         if ([_runningTaskById objectForKey:taskId]) {
             _runningTaskById[taskId][KEY_FILE_NAME] = filename;
         }
-
+        
         // update DB
         __typeof__(self) __weak weakSelf = self;
         dispatch_sync(databaseQueue, ^{
             [weakSelf updateTask:taskId filename:filename];
         });
-
+        
         return [self fileUrlFromDict:mutableTask];
     }
-
+    
     return [self fileUrlFromDict:taskInfo];
 }
 
@@ -576,71 +576,81 @@ static BOOL debug = YES;
     NSString *headers = call.arguments[KEY_HEADERS];
     NSNumber *showNotification = call.arguments[KEY_SHOW_NOTIFICATION];
     NSNumber *openFileFromNotification = call.arguments[KEY_OPEN_FILE_FROM_NOTIFICATION];
-
+    
     NSURLSessionDownloadTask *task = [self downloadTaskWithURL:[NSURL URLWithString:urlString] fileName:fileName andSavedDir:savedDir andHeaders:headers];
-
+    
     NSString *taskId = [self identifierForTask:task];
-
-    [_runningTaskById setObject: [NSMutableDictionary dictionaryWithObjectsAndKeys:
-                                  urlString, KEY_URL,
-                                  fileName, KEY_FILE_NAME,
-                                  savedDir, KEY_SAVED_DIR,
-                                  headers, KEY_HEADERS,
-                                  showNotification, KEY_SHOW_NOTIFICATION,
-                                  openFileFromNotification, KEY_OPEN_FILE_FROM_NOTIFICATION,
-                                  @(NO), KEY_RESUMABLE,
-                                  @(STATUS_ENQUEUED), KEY_STATUS,
-                                  @(0), KEY_PROGRESS, nil]
-                         forKey:taskId];
-
-    __typeof__(self) __weak weakSelf = self;
-    dispatch_sync(databaseQueue, ^{
-        [weakSelf addNewTask:taskId url:urlString status:STATUS_ENQUEUED progress:0 filename:fileName savedDir:shortSavedDir headers:headers resumable:NO showNotification: [showNotification boolValue] openFileFromNotification: [openFileFromNotification boolValue]];
-    });
-    result(taskId);
-    [self sendUpdateProgressForTaskId:taskId inStatus:@(STATUS_ENQUEUED) andProgress:@0];
-}
-
-- (void)enqueueItemsMethodCall:(FlutterMethodCall*)call result:(FlutterResult)result {
-    NSArray *downloads = call.arguments[KEY_DOWNLOADS];
-
-    NSString *headers = call.arguments[KEY_HEADERS];
-    NSNumber *showNotification = call.arguments[KEY_SHOW_NOTIFICATION];
-    NSNumber *openFileFromNotification = call.arguments[KEY_OPEN_FILE_FROM_NOTIFICATION];
-
-    NSMutableArray *taskIds = [[NSMutableArray alloc] init];
-    for (int i = 0; i < [downloads count]; i++) {
-        NSDictionary* downloadDict = [downloads objectAtIndex:i];
-
-        NSString *urlString = downloadDict[KEY_URL];
-        NSString *savedDir = downloadDict[KEY_SAVED_DIR];
-        NSString *shortSavedDir = [self shortenSavedDirPath:savedDir];
-        NSString *fileName = downloadDict[KEY_FILE_NAME];
-
-        NSURLSessionDownloadTask *task = [self downloadTaskWithURL:[NSURL URLWithString:urlString] fileName:fileName andSavedDir:savedDir andHeaders:headers];
-
-        NSString *taskId = [self identifierForTask:task];
-
+    dispatch_async(dispatch_get_global_queue( DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^(void){
+        
         [_runningTaskById setObject: [NSMutableDictionary dictionaryWithObjectsAndKeys:
-                                        urlString, KEY_URL,
-                                        fileName, KEY_FILE_NAME,
-                                        savedDir, KEY_SAVED_DIR,
-                                        headers, KEY_HEADERS,
-                                        showNotification, KEY_SHOW_NOTIFICATION,
-                                        openFileFromNotification, KEY_OPEN_FILE_FROM_NOTIFICATION,
-                                        @(NO), KEY_RESUMABLE,
-                                        @(STATUS_ENQUEUED), KEY_STATUS,
-                                        @(0), KEY_PROGRESS, nil]
-                                forKey:taskId];
-
+                                      urlString, KEY_URL,
+                                      fileName, KEY_FILE_NAME,
+                                      savedDir, KEY_SAVED_DIR,
+                                      headers, KEY_HEADERS,
+                                      showNotification, KEY_SHOW_NOTIFICATION,
+                                      openFileFromNotification, KEY_OPEN_FILE_FROM_NOTIFICATION,
+                                      @(NO), KEY_RESUMABLE,
+                                      @(STATUS_ENQUEUED), KEY_STATUS,
+                                      @(0), KEY_PROGRESS, nil]
+                             forKey:taskId];
+        
         __typeof__(self) __weak weakSelf = self;
         dispatch_sync(databaseQueue, ^{
             [weakSelf addNewTask:taskId url:urlString status:STATUS_ENQUEUED progress:0 filename:fileName savedDir:shortSavedDir headers:headers resumable:NO showNotification: [showNotification boolValue] openFileFromNotification: [openFileFromNotification boolValue]];
         });
-        [taskIds addObject:taskId];
-        [self sendUpdateProgressForTaskId:taskId inStatus:@(STATUS_ENQUEUED) andProgress:@0];
-    }
-    result(taskIds);
+        dispatch_async(dispatch_get_main_queue(), ^{
+            result(taskId);
+            [self sendUpdateProgressForTaskId:taskId inStatus:@(STATUS_ENQUEUED) andProgress:@0]; 
+        });
+    });
+}
+
+- (void)enqueueItemsMethodCall:(FlutterMethodCall*)call result:(FlutterResult)result {
+    NSArray *downloads = call.arguments[KEY_DOWNLOADS];
+    
+    NSString *headers = call.arguments[KEY_HEADERS];
+    NSNumber *showNotification = call.arguments[KEY_SHOW_NOTIFICATION];
+    NSNumber *openFileFromNotification = call.arguments[KEY_OPEN_FILE_FROM_NOTIFICATION];
+    
+    NSMutableArray *taskIds = [[NSMutableArray alloc] init];
+    dispatch_async(dispatch_get_global_queue( DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^(void){
+        for (int i = 0; i < [downloads count]; i++) {
+            NSDictionary* downloadDict = [downloads objectAtIndex:i];
+            
+            NSString *urlString = downloadDict[KEY_URL];
+            NSString *savedDir = downloadDict[KEY_SAVED_DIR];
+            NSString *shortSavedDir = [self shortenSavedDirPath:savedDir];
+            NSString *fileName = downloadDict[KEY_FILE_NAME];
+            
+            NSURLSessionDownloadTask *task = [self downloadTaskWithURL:[NSURL URLWithString:urlString] fileName:fileName andSavedDir:savedDir andHeaders:headers];
+            
+            NSString *taskId = [self identifierForTask:task];
+            
+            [_runningTaskById setObject: [NSMutableDictionary dictionaryWithObjectsAndKeys:
+                                          urlString, KEY_URL,
+                                          fileName, KEY_FILE_NAME,
+                                          savedDir, KEY_SAVED_DIR,
+                                          headers, KEY_HEADERS,
+                                          showNotification, KEY_SHOW_NOTIFICATION,
+                                          openFileFromNotification, KEY_OPEN_FILE_FROM_NOTIFICATION,
+                                          @(NO), KEY_RESUMABLE,
+                                          @(STATUS_ENQUEUED), KEY_STATUS,
+                                          @(0), KEY_PROGRESS, nil]
+                                 forKey:taskId];
+            
+            __typeof__(self) __weak weakSelf = self;
+            NSLog(@"Enqueue: Database Start: %@", fileName);
+            dispatch_sync(databaseQueue, ^{
+                [weakSelf addNewTask:taskId url:urlString status:STATUS_ENQUEUED progress:0 filename:fileName savedDir:shortSavedDir headers:headers resumable:NO showNotification: [showNotification boolValue] openFileFromNotification: [openFileFromNotification boolValue]];
+            });
+            NSLog(@"Enqueue: Database End: %@", fileName);
+            [taskIds addObject:taskId];
+            [self sendUpdateProgressForTaskId:taskId inStatus:@(STATUS_ENQUEUED) andProgress:@0];
+        }
+        dispatch_async(dispatch_get_main_queue(), ^{
+            result(taskIds);
+        });
+    });
 }
 
 - (void)loadTasksMethodCall:(FlutterMethodCall*)call result:(FlutterResult)result {
@@ -684,27 +694,27 @@ static BOOL debug = YES;
         NSNumber* status = taskDict[KEY_STATUS];
         if ([status intValue] == STATUS_PAUSED) {
             NSURL *partialFileURL = [self fileUrlFromDict:taskDict];
-
+            
             if (debug) {
                 NSLog(@"Try to load resume data at url: %@", partialFileURL);
             }
-
+            
             NSData *resumeData = [NSData dataWithContentsOfURL:partialFileURL];
-
+            
             if (resumeData != nil) {
                 NSURLSessionDownloadTask *task = [[self currentSession] downloadTaskWithResumeData:resumeData];
                 NSString *newTaskId = [self identifierForTask:task];
                 [task resume];
-
+                
                 // update memory-cache, assign a new taskId for paused task
                 NSMutableDictionary *newTask = [NSMutableDictionary dictionaryWithDictionary:taskDict];
                 newTask[KEY_STATUS] = @(STATUS_RUNNING);
                 newTask[KEY_RESUMABLE] = @(NO);
                 [_runningTaskById setObject:newTask forKey:newTaskId];
                 [_runningTaskById removeObjectForKey:taskId];
-
+                
                 result(newTaskId);
-
+                
                 __typeof__(self) __weak weakSelf = self;
                 dispatch_sync([self databaseQueue], ^{
                     [weakSelf updateTask:taskId newTaskId:newTaskId status:STATUS_RUNNING resumable:NO];
@@ -737,10 +747,10 @@ static BOOL debug = YES;
             NSString *savedDir = taskDict[KEY_SAVED_DIR];
             NSString *fileName = taskDict[KEY_FILE_NAME];
             NSString *headers = taskDict[KEY_HEADERS];
-
+            
             NSURLSessionDownloadTask *newTask = [self downloadTaskWithURL:[NSURL URLWithString:urlString] fileName:fileName andSavedDir:savedDir andHeaders:headers];
             NSString *newTaskId = [self identifierForTask:newTask];
-
+            
             // update memory-cache
             NSMutableDictionary *newTaskDict = [NSMutableDictionary dictionaryWithDictionary:taskDict];
             newTaskDict[KEY_STATUS] = @(STATUS_ENQUEUED);
@@ -748,7 +758,7 @@ static BOOL debug = YES;
             newTaskDict[KEY_RESUMABLE] = @(NO);
             [_runningTaskById setObject:newTaskDict forKey:newTaskId];
             [_runningTaskById removeObjectForKey:taskId];
-
+            
             __typeof__(self) __weak weakSelf = self;
             dispatch_sync([self databaseQueue], ^{
                 [weakSelf updateTask:taskId newTaskId:newTaskId status:STATUS_ENQUEUED resumable:NO];
@@ -772,7 +782,7 @@ static BOOL debug = YES;
         NSNumber* status = taskDict[KEY_STATUS];
         if ([status intValue] == STATUS_COMPLETE) {
             NSURL *downloadedFileURL = [self fileUrlFromDict:taskDict];
-
+            
             BOOL success = [self openDocumentWithURL:downloadedFileURL];
             result([NSNumber numberWithBool:success]);
         } else {
@@ -811,10 +821,10 @@ static BOOL debug = YES;
         [self deleteTask:taskId];
         if (shouldDeleteContent) {
             NSURL *destinationURL = [self fileUrlFromDict:taskDict];
-
+            
             NSError *error;
             NSFileManager *fileManager = [NSFileManager defaultManager];
-
+            
             if ([fileManager fileExistsAtPath:[destinationURL path]]) {
                 [fileManager removeItemAtURL:destinationURL error:&error];
                 if (debug) {
@@ -846,7 +856,7 @@ static BOOL debug = YES;
 }
 
 + (void)setPluginRegistrantCallback:(FlutterPluginRegistrantCallback)callback {
-  registerPlugins = callback;
+    registerPlugins = callback;
 }
 
 - (void)handleMethodCall:(FlutterMethodCall*)call result:(FlutterResult)result {
@@ -932,24 +942,24 @@ static BOOL debug = YES;
     if (debug) {
         NSLog(@"URLSession:downloadTask:didFinishDownloadingToURL:");
     }
-
+    
     NSString *taskId = [self identifierForTask:downloadTask ofSession:session];
     NSDictionary *task = [self loadTaskWithId:taskId];
     NSURL *destinationURL = [self fileUrlOf:taskId taskInfo:task downloadTask:downloadTask];
-
+    
     [_runningTaskById removeObjectForKey:taskId];
-
+    
     NSError *error;
     NSFileManager *fileManager = [NSFileManager defaultManager];
-
+    
     if ([fileManager fileExistsAtPath:[destinationURL path]]) {
         [fileManager removeItemAtURL:destinationURL error:nil];
     }
-
+    
     BOOL success = [fileManager copyItemAtURL:location
                                         toURL:destinationURL
                                         error:&error];
-
+    
     __typeof__(self) __weak weakSelf = self;
     if (success) {
         [self sendUpdateProgressForTaskId:taskId inStatus:@(STATUS_COMPLETE) andProgress:@100];
@@ -1013,18 +1023,18 @@ static BOOL debug = YES;
             if (debug) {
                 NSLog(@"all download tasks have been finished");
             }
-
+            
             if (self.backgroundTransferCompletionHandler != nil) {
                 // Copy locally the completion handler.
                 void(^completionHandler)(void) = self.backgroundTransferCompletionHandler;
-
+                
                 // Make nil the backgroundTransferCompletionHandler.
                 self.backgroundTransferCompletionHandler = nil;
-
+                
                 [[NSOperationQueue mainQueue] addOperationWithBlock:^{
                     // Call the completion handler to tell the system that there are no other background transfers.
                     completionHandler();
-
+                    
                     // Show a local notification when all downloads are over.
                     UILocalNotification *localNotification = [[UILocalNotification alloc] init];
                     localNotification.alertBody = self->_allFilesDownloadedMsg;
@@ -1054,7 +1064,7 @@ static BOOL debug = YES;
     if (debug) {
         NSLog(@"Finished sending the document to app %@  ...", application);
     }
-
+    
 }
 
 - (void)documentInteractionControllerDidDismissOpenInMenu:(UIDocumentInteractionController *)controller

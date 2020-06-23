@@ -411,9 +411,9 @@ class _MyHomePageState extends State<MyHomePage> {
         openFileFromNotification: true);
   }
 
-  void _cancelDownload(_TaskInfo task) async {
-    await FlutterDownloader.cancel(taskId: task.taskId);
-  }
+  // void _cancelDownload(_TaskInfo task) async {
+  //   await FlutterDownloader.cancel(taskId: task.taskId);
+  // }
 
   void _pauseDownload(_TaskInfo task) async {
     await FlutterDownloader.pause(taskId: task.taskId);
