@@ -12,6 +12,7 @@ import android.content.pm.PackageManager;
 import android.content.res.Resources;
 import android.graphics.BitmapFactory;
 import android.os.Build;
+import android.net.Uri;
 
 import androidx.annotation.NonNull;
 import androidx.core.app.NotificationCompat;
@@ -66,6 +67,7 @@ public class DownloadWorker extends Worker implements MethodChannel.MethodCallHa
     public static final String ARG_OPEN_FILE_FROM_NOTIFICATION = "open_file_from_notification";
     public static final String ARG_CALLBACK_HANDLE = "callback_handle";
     public static final String ARG_DEBUG = "debug";
+    public static final String IS_PENDING = "is_pending";
 
     private static final String TAG = DownloadWorker.class.getSimpleName();
     private static final int BUFFER_SIZE = 4096;
@@ -89,8 +91,7 @@ public class DownloadWorker extends Worker implements MethodChannel.MethodCallHa
     private int primaryId;
     private String msgStarted, msgInProgress, msgCanceled, msgFailed, msgPaused, msgComplete;
 
-    public DownloadWorker(@NonNull final Context context,
-                          @NonNull WorkerParameters params) {
+    public DownloadWorker(@NonNull final Context context, @NonNull WorkerParameters params) {
         super(context, params);
 
         new Handler(context.getMainLooper()).post(new Runnable() {
@@ -104,13 +105,18 @@ public class DownloadWorker extends Worker implements MethodChannel.MethodCallHa
     private void startBackgroundIsolate(Context context) {
         synchronized (isolateStarted) {
             if (backgroundFlutterView == null) {
-                SharedPreferences pref = context.getSharedPreferences(FlutterDownloaderPlugin.SHARED_PREFERENCES_KEY, Context.MODE_PRIVATE);
-                long callbackHandle = pref.getLong(FlutterDownloaderPlugin.CALLBACK_DISPATCHER_HANDLE_KEY, 0);
+                SharedPreferences pref = context.getSharedPreferences(
+                        FlutterDownloaderPlugin.SHARED_PREFERENCES_KEY, Context.MODE_PRIVATE);
+                long callbackHandle =
+                        pref.getLong(FlutterDownloaderPlugin.CALLBACK_DISPATCHER_HANDLE_KEY, 0);
 
-                FlutterMain.startInitialization(context); // Starts initialization of the native system, if already initialized this does nothing
+                FlutterMain.startInitialization(context); // Starts initialization of the native
+                // system, if already initialized this
+                // does nothing
                 FlutterMain.ensureInitializationComplete(context, null);
 
-                FlutterCallbackInformation callbackInfo = FlutterCallbackInformation.lookupCallbackInformation(callbackHandle);
+                FlutterCallbackInformation callbackInfo =
+                        FlutterCallbackInformation.lookupCallbackInformation(callbackHandle);
                 if (callbackInfo == null) {
                     Log.e(TAG, "Fatal: failed to find callback");
                     return;
@@ -120,7 +126,8 @@ public class DownloadWorker extends Worker implements MethodChannel.MethodCallHa
 
                 /// backward compatibility with V1 embedding
                 if (getApplicationContext() instanceof PluginRegistrantCallback) {
-                    PluginRegistrantCallback pluginRegistrantCallback = (PluginRegistrantCallback) getApplicationContext();
+                    PluginRegistrantCallback pluginRegistrantCallback =
+                            (PluginRegistrantCallback) getApplicationContext();
                     PluginRegistry registry = backgroundFlutterView.getPluginRegistry();
                     pluginRegistrantCallback.registerWith(registry);
                 }
@@ -134,7 +141,8 @@ public class DownloadWorker extends Worker implements MethodChannel.MethodCallHa
             }
         }
 
-        backgroundChannel = new MethodChannel(backgroundFlutterView, "vn.hunghd/downloader_background");
+        backgroundChannel =
+                new MethodChannel(backgroundFlutterView, "vn.hunghd/downloader_background");
         backgroundChannel.setMethodCallHandler(this);
     }
 
@@ -175,17 +183,20 @@ public class DownloadWorker extends Worker implements MethodChannel.MethodCallHa
         msgPaused = res.getString(R.string.flutter_downloader_notification_paused);
         msgComplete = res.getString(R.string.flutter_downloader_notification_complete);
 
-        log("DownloadWorker{url=" + url + ",filename=" + filename + ",savedDir=" + savedDir + ",header=" + headers + ",isResume=" + isResume);
+        log("DownloadWorker{url=" + url + ",filename=" + filename + ",savedDir=" + savedDir
+                + ",header=" + headers + ",isResume=" + isResume);
 
         showNotification = getInputData().getBoolean(ARG_SHOW_NOTIFICATION, false);
-        clickToOpenDownloadedFile = getInputData().getBoolean(ARG_OPEN_FILE_FROM_NOTIFICATION, false);
+        clickToOpenDownloadedFile =
+                getInputData().getBoolean(ARG_OPEN_FILE_FROM_NOTIFICATION, false);
 
         DownloadTask task = taskDao.loadTask(getId().toString());
         primaryId = task.primaryId;
 
         buildNotification(context);
 
-        updateNotification(context, filename == null ? url : filename, DownloadStatus.RUNNING, task.progress, null);
+        updateNotification(context, filename == null ? url : filename, DownloadStatus.RUNNING,
+                task.progress, null);
         taskDao.updateTask(getId().toString(), DownloadStatus.RUNNING, 0);
 
         try {
@@ -195,7 +206,8 @@ public class DownloadWorker extends Worker implements MethodChannel.MethodCallHa
             taskDao = null;
             return Result.success();
         } catch (Exception e) {
-            updateNotification(context, filename == null ? url : filename, DownloadStatus.FAILED, -1, null);
+            updateNotification(context, filename == null ? url : filename, DownloadStatus.FAILED,
+                    -1, null);
             taskDao.updateTask(getId().toString(), DownloadStatus.FAILED, lastProgress);
             e.printStackTrace();
             dbHelper = null;
@@ -209,7 +221,7 @@ public class DownloadWorker extends Worker implements MethodChannel.MethodCallHa
             log("Headers = " + headers);
             try {
                 JSONObject json = new JSONObject(headers);
-                for (Iterator<String> it = json.keys(); it.hasNext(); ) {
+                for (Iterator<String> it = json.keys(); it.hasNext();) {
                     String key = it.next();
                     conn.setRequestProperty(key, json.getString(key));
                 }
@@ -220,7 +232,8 @@ public class DownloadWorker extends Worker implements MethodChannel.MethodCallHa
         }
     }
 
-    private long setupPartialDownloadedDataHeader(HttpURLConnection conn, String filename, String savedDir) {
+    private long setupPartialDownloadedDataHeader(HttpURLConnection conn, String filename,
+            String savedDir) {
         String saveFilePath = savedDir + File.separator + filename;
         File partialFile = new File(saveFilePath);
         long downloadedBytes = partialFile.length();
@@ -231,7 +244,8 @@ public class DownloadWorker extends Worker implements MethodChannel.MethodCallHa
         return downloadedBytes;
     }
 
-    private void downloadFile(Context context, String fileURL, String savedDir, String filename, String headers, boolean isResume) throws IOException {
+    private void downloadFile(Context context, String fileURL, String savedDir, String filename,
+            String headers, boolean isResume) throws IOException {
         String url = fileURL;
         URL resourceUrl, base, next;
         Map<String, Integer> visited;
@@ -265,14 +279,16 @@ public class DownloadWorker extends Worker implements MethodChannel.MethodCallHa
 
                 httpConn.setConnectTimeout(15000);
                 httpConn.setReadTimeout(15000);
-                httpConn.setInstanceFollowRedirects(false);   // Make the logic below easier to detect redirections
+                httpConn.setInstanceFollowRedirects(false); // Make the logic below easier to detect
+                // redirections
                 httpConn.setRequestProperty("User-Agent", "Mozilla/5.0...");
 
                 // setup request headers if it is set
                 setupHeaders(httpConn, headers);
                 // try to continue downloading a file from its partial downloaded data.
                 if (isResume) {
-                    downloadedBytes = setupPartialDownloadedDataHeader(httpConn, filename, savedDir);
+                    downloadedBytes =
+                            setupPartialDownloadedDataHeader(httpConn, filename, savedDir);
                 }
 
                 responseCode = httpConn.getResponseCode();
@@ -284,7 +300,7 @@ public class DownloadWorker extends Worker implements MethodChannel.MethodCallHa
                         location = httpConn.getHeaderField("Location");
                         log("Location = " + location);
                         base = new URL(fileURL);
-                        next = new URL(base, location);  // Deal with relative URLs
+                        next = new URL(base, location); // Deal with relative URLs
                         url = next.toExternalForm();
                         log("New url: " + url);
                         continue;
@@ -295,7 +311,9 @@ public class DownloadWorker extends Worker implements MethodChannel.MethodCallHa
 
             httpConn.connect();
 
-            if ((responseCode == HttpURLConnection.HTTP_OK || (isResume && responseCode == HttpURLConnection.HTTP_PARTIAL)) && !isStopped()) {
+            if ((responseCode == HttpURLConnection.HTTP_OK
+                    || (isResume && responseCode == HttpURLConnection.HTTP_PARTIAL))
+                    && !isStopped()) {
                 String contentType = httpConn.getContentType();
                 int contentLength = httpConn.getContentLength();
                 log("Content-Type = " + contentType);
@@ -309,8 +327,10 @@ public class DownloadWorker extends Worker implements MethodChannel.MethodCallHa
                         String disposition = httpConn.getHeaderField("Content-Disposition");
                         log("Content-Disposition = " + disposition);
                         if (disposition != null && !disposition.isEmpty()) {
-                            String name = disposition.replaceFirst("(?i)^.*filename=\"?([^\"]+)\"?.*$", "$1");
-                            filename = URLDecoder.decode(name, charset != null ? charset : "ISO-8859-1");
+                            String name = disposition
+                                    .replaceFirst("(?i)^.*filename=\"?([^\"]+)\"?.*$", "$1");
+                            filename = URLDecoder.decode(name,
+                                    charset != null ? charset : "ISO-8859-1");
                         }
                         if (filename == null || filename.isEmpty()) {
                             filename = url.substring(url.lastIndexOf("/") + 1);
@@ -337,14 +357,18 @@ public class DownloadWorker extends Worker implements MethodChannel.MethodCallHa
                     int progress = (int) ((count * 100) / (contentLength + downloadedBytes));
                     outputStream.write(buffer, 0, bytesRead);
 
-                    if ((lastProgress == 0 || progress > lastProgress + STEP_UPDATE || progress == 100)
-                            && progress != lastProgress) {
+                    if ((lastProgress == 0 || progress > lastProgress + STEP_UPDATE
+                            || progress == 100) && progress != lastProgress) {
                         lastProgress = progress;
-                        updateNotification(context, filename, DownloadStatus.RUNNING, progress, null);
+                        updateNotification(context, filename, DownloadStatus.RUNNING, progress,
+                                null);
 
-                        // This line possibly causes system overloaded because of accessing to DB too many ?!!!
-                        // but commenting this line causes tasks loaded from DB missing current downloading progress,
-                        // however, this missing data should be temporary and it will be updated as soon as
+                        // This line possibly causes system overloaded because of accessing to DB
+                        // too many ?!!!
+                        // but commenting this line causes tasks loaded from DB missing current
+                        // downloading progress,
+                        // however, this missing data should be temporary and it will be updated as
+                        // soon as
                         // a new bunch of data fetched and a notification sent
                         taskDao.updateTask(getId().toString(), DownloadStatus.RUNNING, progress);
                     }
@@ -352,8 +376,11 @@ public class DownloadWorker extends Worker implements MethodChannel.MethodCallHa
 
                 DownloadTask task = taskDao.loadTask(getId().toString());
                 int progress = isStopped() && task.resumable ? lastProgress : 100;
-                int status = isStopped() ? (task.resumable ? DownloadStatus.PAUSED : DownloadStatus.CANCELED) : DownloadStatus.COMPLETE;
-                int storage = ContextCompat.checkSelfPermission(getApplicationContext(), android.Manifest.permission.WRITE_EXTERNAL_STORAGE);
+                int status = isStopped()
+                        ? (task.resumable ? DownloadStatus.PAUSED : DownloadStatus.CANCELED)
+                        : DownloadStatus.COMPLETE;
+                int storage = ContextCompat.checkSelfPermission(getApplicationContext(),
+                        android.Manifest.permission.WRITE_EXTERNAL_STORAGE);
                 PendingIntent pendingIntent = null;
                 if (status == DownloadStatus.COMPLETE) {
                     if (isMediaFile(contentType) && isExternalStoragePath(saveFilePath)) {
@@ -361,29 +388,36 @@ public class DownloadWorker extends Worker implements MethodChannel.MethodCallHa
                                 getContentTypeWithoutCharset(contentType));
                     }
                     if (clickToOpenDownloadedFile && storage == PackageManager.PERMISSION_GRANTED) {
-                        Intent intent = IntentUtils.validatedFileIntent(getApplicationContext(), saveFilePath, contentType);
+                        Intent intent = IntentUtils.validatedFileIntent(getApplicationContext(),
+                                saveFilePath, contentType);
                         if (intent != null) {
                             log("Setting an intent to open the file " + saveFilePath);
-                            pendingIntent = PendingIntent.getActivity(getApplicationContext(), 0, intent, PendingIntent.FLAG_CANCEL_CURRENT);
+                            pendingIntent = PendingIntent.getActivity(getApplicationContext(), 0,
+                                    intent, PendingIntent.FLAG_CANCEL_CURRENT);
                         } else {
                             log("There's no application that can open the file " + saveFilePath);
                         }
                     }
                 }
-                Log.d(TAG, "===> updateNotification: (filename: " + filename + ", status: " + status + ")");
+                Log.d(TAG, "===> updateNotification: (filename: " + filename + ", status: " + status
+                        + ")");
                 updateNotification(context, filename, status, progress, pendingIntent);
                 taskDao.updateTask(getId().toString(), status, progress);
 
                 log(isStopped() ? "Download canceled" : "File downloaded");
             } else {
                 DownloadTask task = taskDao.loadTask(getId().toString());
-                int status = isStopped() ? (task.resumable ? DownloadStatus.PAUSED : DownloadStatus.CANCELED) : DownloadStatus.FAILED;
+                int status = isStopped()
+                        ? (task.resumable ? DownloadStatus.PAUSED : DownloadStatus.CANCELED)
+                        : DownloadStatus.FAILED;
                 updateNotification(context, filename, status, -1, null);
                 taskDao.updateTask(getId().toString(), status, lastProgress);
-                log(isStopped() ? "Download canceled" : "Server replied HTTP code: " + responseCode);
+                log(isStopped() ? "Download canceled"
+                        : "Server replied HTTP code: " + responseCode);
             }
         } catch (IOException e) {
-            updateNotification(context, filename == null ? fileURL : filename, DownloadStatus.FAILED, -1, null);
+            updateNotification(context, filename == null ? fileURL : filename,
+                    DownloadStatus.FAILED, -1, null);
             taskDao.updateTask(getId().toString(), DownloadStatus.FAILED, lastProgress);
             e.printStackTrace();
         } finally {
@@ -436,7 +470,8 @@ public class DownloadWorker extends Worker implements MethodChannel.MethodCallHa
             channel.setSound(null, null);
 
             // Add the channel
-            NotificationManager notificationManager = context.getSystemService(NotificationManager.class);
+            NotificationManager notificationManager =
+                    context.getSystemService(NotificationManager.class);
 
             if (notificationManager != null) {
                 notificationManager.createNotificationChannel(channel);
@@ -445,44 +480,39 @@ public class DownloadWorker extends Worker implements MethodChannel.MethodCallHa
 
         // Create the notification
         builder = new NotificationCompat.Builder(context, CHANNEL_ID)
-//                .setSmallIcon(R.drawable.ic_download)
-                .setOnlyAlertOnce(true)
-                .setAutoCancel(true)
+                // .setSmallIcon(R.drawable.ic_download)
+                .setOnlyAlertOnce(true).setAutoCancel(true)
                 .setPriority(NotificationCompat.PRIORITY_DEFAULT);
 
     }
 
-    private void updateNotification(Context context, String title, int status, int progress, PendingIntent intent) {
+    private void updateNotification(Context context, String title, int status, int progress,
+            PendingIntent intent) {
         builder.setContentTitle(title);
         builder.setContentIntent(intent);
         boolean shouldUpdate = false;
 
         if (status == DownloadStatus.RUNNING) {
             shouldUpdate = true;
-            builder.setContentText(progress == 0 ? msgStarted : msgInProgress)
-                    .setProgress(100, progress, progress == 0);
-            builder.setOngoing(true)
-                    .setSmallIcon(android.R.drawable.stat_sys_download);
+            builder.setContentText(progress == 0 ? msgStarted : msgInProgress).setProgress(100,
+                    progress, progress == 0);
+            builder.setOngoing(true).setSmallIcon(android.R.drawable.stat_sys_download);
         } else if (status == DownloadStatus.CANCELED) {
             shouldUpdate = true;
             builder.setContentText(msgCanceled).setProgress(0, 0, false);
-            builder.setOngoing(false)
-                    .setSmallIcon(android.R.drawable.stat_sys_download_done);
+            builder.setOngoing(false).setSmallIcon(android.R.drawable.stat_sys_download_done);
         } else if (status == DownloadStatus.FAILED) {
             shouldUpdate = true;
             builder.setContentText(msgFailed).setProgress(0, 0, false);
-            builder.setOngoing(false)
-                    .setSmallIcon(android.R.drawable.stat_sys_download_done);
+            builder.setOngoing(false).setSmallIcon(android.R.drawable.stat_sys_download_done);
         } else if (status == DownloadStatus.PAUSED) {
             shouldUpdate = true;
             builder.setContentText(msgPaused).setProgress(0, 0, false);
-            builder.setOngoing(false)
-                    .setSmallIcon(android.R.drawable.stat_sys_download_done);
+            builder.setOngoing(false).setSmallIcon(android.R.drawable.stat_sys_download_done);
         } else if (status == DownloadStatus.COMPLETE) {
             shouldUpdate = true;
             builder.setContentText(msgComplete).setProgress(0, 0, false);
-            builder.setOngoing(false)
-                    .setSmallIcon(android.R.drawable.stat_sys_download_done);
+            builder.setOngoing(false).setSmallIcon(android.R.drawable.stat_sys_download_done);
         }
 
         // Show the notification
@@ -541,13 +571,15 @@ public class DownloadWorker extends Worker implements MethodChannel.MethodCallHa
 
     private boolean isExternalStoragePath(String filePath) {
         File externalStorageDir = Environment.getExternalStorageDirectory();
-        return filePath != null && externalStorageDir != null && filePath.startsWith(externalStorageDir.getPath());
+        return filePath != null && externalStorageDir != null
+                && filePath.startsWith(externalStorageDir.getPath());
     }
+
     private void addMediaToGallery(String fileName, String filePath, String contentType) {
         if (contentType != null && filePath != null && fileName != null) {
             if (contentType.startsWith("image/")) {
                 ContentValues values = new ContentValues();
-    
+
                 values.put(MediaStore.Images.Media.TITLE, fileName);
                 values.put(MediaStore.Images.Media.DISPLAY_NAME, fileName);
                 values.put(MediaStore.Images.Media.DESCRIPTION, "");
@@ -555,14 +587,14 @@ public class DownloadWorker extends Worker implements MethodChannel.MethodCallHa
                 values.put(MediaStore.Images.Media.DATE_ADDED, System.currentTimeMillis());
                 values.put(MediaStore.Images.Media.DATE_TAKEN, System.currentTimeMillis());
                 values.put(MediaStore.Images.Media.DATA, filePath);
-    
+
                 log("insert " + values + " to MediaStore");
-    
+
                 ContentResolver contentResolver = getApplicationContext().getContentResolver();
                 contentResolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values);
             } else if (contentType.startsWith("video")) {
                 ContentValues values = new ContentValues();
-    
+
                 values.put(MediaStore.Video.Media.TITLE, fileName);
                 values.put(MediaStore.Video.Media.DISPLAY_NAME, fileName);
                 values.put(MediaStore.Video.Media.DESCRIPTION, "");
@@ -570,24 +602,31 @@ public class DownloadWorker extends Worker implements MethodChannel.MethodCallHa
                 values.put(MediaStore.Video.Media.DATE_ADDED, System.currentTimeMillis());
                 values.put(MediaStore.Video.Media.DATE_TAKEN, System.currentTimeMillis());
                 values.put(MediaStore.Video.Media.DATA, filePath);
-    
+
                 log("insert " + values + " to MediaStore");
-    
+
                 ContentResolver contentResolver = getApplicationContext().getContentResolver();
                 contentResolver.insert(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, values);
             } else if (contentType.startsWith("audio") || contentType.contains("octet-stream")) {
                 ContentValues values = new ContentValues();
-    
+
                 values.put(MediaStore.Audio.Media.TITLE, fileName);
                 values.put(MediaStore.Audio.Media.DISPLAY_NAME, fileName);
                 values.put(MediaStore.Audio.Media.MIME_TYPE, "audio/mpeg");
                 values.put(MediaStore.Audio.Media.DATE_ADDED, System.currentTimeMillis());
                 values.put(MediaStore.Audio.Media.DATA, filePath);
-    
+                if (android.os.Build.VERSION.SDK_INT >= 29) {
+                    values.put(IS_PENDING, 1);
+                }
                 log("insert " + values + " to MediaStore");
-    
                 ContentResolver contentResolver = getApplicationContext().getContentResolver();
-                contentResolver.insert(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, values);
+                Uri uriSavedMusic =
+                        contentResolver.insert(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, values);
+                if (android.os.Build.VERSION.SDK_INT >= 29) {
+                    values.clear();
+                    values.put(IS_PENDING, 0);
+                    contentResolver.update(uriSavedMusic, values, null, null);
+                }
             }
         }
     }
