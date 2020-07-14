@@ -14,6 +14,7 @@ import android.graphics.BitmapFactory;
 import android.os.Build;
 import android.net.Uri;
 
+import java.io.File;
 import androidx.annotation.NonNull;
 import androidx.core.app.NotificationCompat;
 import androidx.core.app.NotificationManagerCompat;
@@ -608,24 +609,27 @@ public class DownloadWorker extends Worker implements MethodChannel.MethodCallHa
                 ContentResolver contentResolver = getApplicationContext().getContentResolver();
                 contentResolver.insert(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, values);
             } else if (contentType.startsWith("audio") || contentType.contains("octet-stream")) {
-                ContentValues values = new ContentValues();
-
-                values.put(MediaStore.Audio.Media.TITLE, fileName);
-                values.put(MediaStore.Audio.Media.DISPLAY_NAME, fileName);
-                values.put(MediaStore.Audio.Media.MIME_TYPE, "audio/mpeg");
-                values.put(MediaStore.Audio.Media.DATE_ADDED, System.currentTimeMillis());
-                values.put(MediaStore.Audio.Media.DATA, filePath);
+                File file = new File(filePath);
                 if (android.os.Build.VERSION.SDK_INT >= 29) {
+                    ContentValues values = new ContentValues();
+                    values.put(MediaStore.Audio.Media.TITLE, fileName);
+                    values.put(MediaStore.Audio.Media.DISPLAY_NAME, fileName);
+                    values.put(MediaStore.Audio.Media.MIME_TYPE, "audio/mpeg");
+                    values.put(MediaStore.Audio.Media.DATE_ADDED, System.currentTimeMillis());
+                    values.put(MediaStore.Audio.Media.DATA, filePath);
+                    values.put(MediaStore.Audio.Media.SIZE, file.getTotalSpace());
                     values.put(IS_PENDING, 1);
-                }
-                log("insert " + values + " to MediaStore");
-                ContentResolver contentResolver = getApplicationContext().getContentResolver();
-                Uri uriSavedMusic =
-                        contentResolver.insert(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, values);
-                if (android.os.Build.VERSION.SDK_INT >= 29) {
+                    log("insert " + values + " to MediaStore");
+                    ContentResolver contentResolver = getApplicationContext().getContentResolver();
+                    Uri uriSavedMusic = contentResolver
+                            .insert(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, values);
                     values.clear();
                     values.put(IS_PENDING, 0);
                     contentResolver.update(uriSavedMusic, values, null, null);
+                } else {
+                    Intent scanFileIntent =
+                            new Intent(Intent.ACTION_MEDIA_SCANNER_SCAN_FILE, Uri.fromFile(file));
+                    getApplicationContext().sendBroadcast(scanFileIntent);
                 }
             }
         }
