@@ -15,6 +15,7 @@ import android.os.Build;
 import android.net.Uri;
 
 import java.io.File;
+
 import androidx.annotation.NonNull;
 import androidx.core.app.NotificationCompat;
 import androidx.core.app.NotificationManagerCompat;
@@ -222,7 +223,7 @@ public class DownloadWorker extends Worker implements MethodChannel.MethodCallHa
             log("Headers = " + headers);
             try {
                 JSONObject json = new JSONObject(headers);
-                for (Iterator<String> it = json.keys(); it.hasNext();) {
+                for (Iterator<String> it = json.keys(); it.hasNext(); ) {
                     String key = it.next();
                     conn.setRequestProperty(key, json.getString(key));
                 }
@@ -234,7 +235,7 @@ public class DownloadWorker extends Worker implements MethodChannel.MethodCallHa
     }
 
     private long setupPartialDownloadedDataHeader(HttpURLConnection conn, String filename,
-            String savedDir) {
+                                                  String savedDir) {
         String saveFilePath = savedDir + File.separator + filename;
         File partialFile = new File(saveFilePath);
         long downloadedBytes = partialFile.length();
@@ -246,7 +247,7 @@ public class DownloadWorker extends Worker implements MethodChannel.MethodCallHa
     }
 
     private void downloadFile(Context context, String fileURL, String savedDir, String filename,
-            String headers, boolean isResume) throws IOException {
+                              String headers, boolean isResume) throws IOException {
         String url = fileURL;
         URL resourceUrl, base, next;
         Map<String, Integer> visited;
@@ -488,7 +489,7 @@ public class DownloadWorker extends Worker implements MethodChannel.MethodCallHa
     }
 
     private void updateNotification(Context context, String title, int status, int progress,
-            PendingIntent intent) {
+                                    PendingIntent intent) {
         builder.setContentTitle(title);
         builder.setContentIntent(intent);
         boolean shouldUpdate = false;
@@ -610,26 +611,30 @@ public class DownloadWorker extends Worker implements MethodChannel.MethodCallHa
                 contentResolver.insert(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, values);
             } else if (contentType.startsWith("audio") || contentType.contains("octet-stream")) {
                 File file = new File(filePath);
-                if (android.os.Build.VERSION.SDK_INT >= 29) {
-                    ContentValues values = new ContentValues();
-                    values.put(MediaStore.Audio.Media.TITLE, fileName);
-                    values.put(MediaStore.Audio.Media.DISPLAY_NAME, fileName);
-                    values.put(MediaStore.Audio.Media.MIME_TYPE, "audio/mpeg");
-                    values.put(MediaStore.Audio.Media.DATE_ADDED, System.currentTimeMillis());
-                    values.put(MediaStore.Audio.Media.DATA, filePath);
-                    values.put(MediaStore.Audio.Media.SIZE, file.getTotalSpace());
-                    values.put(IS_PENDING, 1);
-                    log("insert " + values + " to MediaStore");
-                    ContentResolver contentResolver = getApplicationContext().getContentResolver();
-                    Uri uriSavedMusic = contentResolver
-                            .insert(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, values);
-                    values.clear();
-                    values.put(IS_PENDING, 0);
-                    contentResolver.update(uriSavedMusic, values, null, null);
-                } else {
-                    Intent scanFileIntent =
-                            new Intent(Intent.ACTION_MEDIA_SCANNER_SCAN_FILE, Uri.fromFile(file));
-                    getApplicationContext().sendBroadcast(scanFileIntent);
+                if (file.exists()) {
+                    if (android.os.Build.VERSION.SDK_INT >= 29) {
+                        ContentValues values = new ContentValues();
+                        values.put(MediaStore.Audio.Media.TITLE, fileName);
+                        values.put(MediaStore.Audio.Media.DISPLAY_NAME, fileName);
+                        values.put(MediaStore.Audio.Media.MIME_TYPE, "audio/mpeg");
+                        values.put(MediaStore.Audio.Media.DATE_ADDED, System.currentTimeMillis());
+                        values.put(MediaStore.Audio.Media.DATA, filePath);
+                        values.put(MediaStore.Audio.Media.SIZE, file.getTotalSpace());
+                        values.put(IS_PENDING, 1);
+                        log("insert " + values + " to MediaStore");
+                        ContentResolver contentResolver = getApplicationContext().getContentResolver();
+                        Uri uriSavedMusic = contentResolver
+                                .insert(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, values);
+                        if (uriSavedMusic != null) {
+                            values.clear();
+                            values.put(IS_PENDING, 0);
+                            contentResolver.update(uriSavedMusic, values, null, null);
+                        }
+                    } else {
+                        Intent scanFileIntent =
+                                new Intent(Intent.ACTION_MEDIA_SCANNER_SCAN_FILE, Uri.fromFile(file));
+                        getApplicationContext().sendBroadcast(scanFileIntent);
+                    }
                 }
             }
         }
