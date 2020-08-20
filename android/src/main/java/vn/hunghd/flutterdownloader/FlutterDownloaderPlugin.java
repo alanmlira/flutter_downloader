@@ -137,11 +137,12 @@ public class FlutterDownloaderPlugin implements MethodCallHandler, FlutterPlugin
         return request;
     }
 
-    private void sendUpdateProgress(String id, int status, int progress) {
+    private void sendUpdateProgress(String id, int status, int progress,String obs) {
         Map<String, Object> args = new HashMap<>();
         args.put("task_id", id);
         args.put("status", status);
         args.put("progress", progress);
+        args.put("obs", obs);
         flutterChannel.invokeMethod("updateProgress", args);
     }
 
@@ -175,7 +176,7 @@ public class FlutterDownloaderPlugin implements MethodCallHandler, FlutterPlugin
         WorkManager.getInstance(context).enqueue(request);
         String taskId = request.getId().toString();
         result.success(taskId);
-        sendUpdateProgress(taskId, DownloadStatus.ENQUEUED, 0);
+        sendUpdateProgress(taskId, DownloadStatus.ENQUEUED, 0,"");
         taskDao.insertOrUpdateNewTask(taskId, url, DownloadStatus.ENQUEUED, 0, filename, savedDir, headers,
                 showNotification, openFileFromNotification);
     }
@@ -200,7 +201,7 @@ public class FlutterDownloaderPlugin implements MethodCallHandler, FlutterPlugin
             WorkManager.getInstance(context).enqueue(request);
             String taskId = request.getId().toString();
             taskIds.add(taskId);
-            sendUpdateProgress(taskId, DownloadStatus.ENQUEUED, 0);
+            sendUpdateProgress(taskId, DownloadStatus.ENQUEUED, 0,"");
             taskDao.insertOrUpdateNewTask(taskId, url, DownloadStatus.ENQUEUED, 0, filename, savedDir, headers,
                     showNotification, openFileFromNotification);
         }
@@ -278,7 +279,7 @@ public class FlutterDownloaderPlugin implements MethodCallHandler, FlutterPlugin
                             task.showNotification, task.openFileFromNotification, true, requiresStorageNotLow);
                     String newTaskId = request.getId().toString();
                     result.success(newTaskId);
-                    sendUpdateProgress(newTaskId, DownloadStatus.RUNNING, task.progress);
+                    sendUpdateProgress(newTaskId, DownloadStatus.RUNNING, task.progress,"");
                     taskDao.updateTask(taskId, newTaskId, DownloadStatus.RUNNING, task.progress, false);
                     WorkManager.getInstance(context).enqueue(request);
                 } else {
@@ -303,7 +304,7 @@ public class FlutterDownloaderPlugin implements MethodCallHandler, FlutterPlugin
                         task.showNotification, task.openFileFromNotification, false, requiresStorageNotLow);
                 String newTaskId = request.getId().toString();
                 result.success(newTaskId);
-                sendUpdateProgress(newTaskId, DownloadStatus.ENQUEUED, task.progress);
+                sendUpdateProgress(newTaskId, DownloadStatus.ENQUEUED, task.progress,"");
                 taskDao.updateTask(taskId, newTaskId, DownloadStatus.ENQUEUED, task.progress, false);
                 WorkManager.getInstance(context).enqueue(request);
             } else {

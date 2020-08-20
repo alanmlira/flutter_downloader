@@ -218,7 +218,7 @@ static BOOL debug = YES;
                 
                 [weakSelf updateRunningTaskById:taskId progress:progress status:STATUS_PAUSED resumable:YES];
                 
-                [weakSelf sendUpdateProgressForTaskId:taskId inStatus:@(STATUS_PAUSED) andProgress:@(progress)];
+                [weakSelf sendUpdateProgressForTaskId:taskId inStatus:@(STATUS_PAUSED) andProgress:@(progress) andErrorType:@""];
                 
                 dispatch_sync([weakSelf databaseQueue], ^{
                     [weakSelf updateTask:taskId status:STATUS_PAUSED progress:progress resumable:YES];
@@ -241,7 +241,7 @@ static BOOL debug = YES;
             NSString *taskIdValue = [self identifierForTask:download];
             if ([taskId isEqualToString:taskIdValue] && (state == NSURLSessionTaskStateRunning)) {
                 [download cancel];
-                [weakSelf sendUpdateProgressForTaskId:taskId inStatus:@(STATUS_CANCELED) andProgress:@(-1)];
+                [weakSelf sendUpdateProgressForTaskId:taskId inStatus:@(STATUS_CANCELED) andProgress:@(-1) andErrorType:@""];
                 dispatch_sync([weakSelf databaseQueue], ^{
                     [weakSelf updateTask:taskId status:STATUS_CANCELED progress:-1];
                 });
@@ -259,7 +259,7 @@ static BOOL debug = YES;
             if (state == NSURLSessionTaskStateRunning) {
                 [download cancel];
                 NSString *taskId = [self identifierForTask:download];
-                [weakSelf sendUpdateProgressForTaskId:taskId inStatus:@(STATUS_CANCELED) andProgress:@(-1)];
+                [weakSelf sendUpdateProgressForTaskId:taskId inStatus:@(STATUS_CANCELED) andProgress:@(-1) andErrorType:@""];
                 dispatch_sync([weakSelf databaseQueue], ^{
                     [weakSelf updateTask:taskId status:STATUS_CANCELED progress:-1];
                 });
@@ -268,9 +268,9 @@ static BOOL debug = YES;
     }];
 }
 
-- (void)sendUpdateProgressForTaskId: (NSString*)taskId inStatus: (NSNumber*) status andProgress: (NSNumber*) progress
+- (void)sendUpdateProgressForTaskId: (NSString*)taskId inStatus: (NSNumber*) status andProgress: (NSNumber*) progress andErrorType: (NSString*) errorType 
 {
-    NSArray *args = @[@(_callbackHandle), taskId, status, progress];
+    NSArray *args = @[@(_callbackHandle), taskId, status, progress, errorType];
     if (initialized) {
         [_callbackChannel invokeMethod:@"" arguments:args];
     } else {
@@ -600,7 +600,7 @@ static BOOL debug = YES;
         });
         dispatch_async(dispatch_get_main_queue(), ^{
             result(taskId);
-            [self sendUpdateProgressForTaskId:taskId inStatus:@(STATUS_ENQUEUED) andProgress:@0]; 
+            [self sendUpdateProgressForTaskId:taskId inStatus:@(STATUS_ENQUEUED) andProgress:@0 andErrorType:@""]; 
         });
     });
 }
@@ -645,7 +645,7 @@ static BOOL debug = YES;
             });
             NSLog(@"Enqueue: Database End: %@", fileName);
             [taskIds addObject:taskId];
-            [self sendUpdateProgressForTaskId:taskId inStatus:@(STATUS_ENQUEUED) andProgress:@0];
+            [self sendUpdateProgressForTaskId:taskId inStatus:@(STATUS_ENQUEUED) andProgress:@0 andErrorType:@""];
         }
         dispatch_async(dispatch_get_main_queue(), ^{
             result(taskIds);
@@ -720,7 +720,7 @@ static BOOL debug = YES;
                     [weakSelf updateTask:taskId newTaskId:newTaskId status:STATUS_RUNNING resumable:NO];
                     NSDictionary *task = [weakSelf loadTaskWithId:newTaskId];
                     NSNumber *progress = task[KEY_PROGRESS];
-                    [weakSelf sendUpdateProgressForTaskId:newTaskId inStatus:@(STATUS_RUNNING) andProgress:progress];
+                    [weakSelf sendUpdateProgressForTaskId:newTaskId inStatus:@(STATUS_RUNNING) andProgress:progress andErrorType:@""];
                 });
             } else {
                 result([FlutterError errorWithCode:@"invalid_data"
@@ -764,7 +764,7 @@ static BOOL debug = YES;
                 [weakSelf updateTask:taskId newTaskId:newTaskId status:STATUS_ENQUEUED resumable:NO];
             });
             result(newTaskId);
-            [self sendUpdateProgressForTaskId:newTaskId inStatus:@(STATUS_ENQUEUED) andProgress:@(0)];
+            [self sendUpdateProgressForTaskId:newTaskId inStatus:@(STATUS_ENQUEUED) andProgress:@(0)  andErrorType:@""];
         } else {
             result([FlutterError errorWithCode:@"invalid_status"
                                        message:@"only failed and canceled task can be retried"
@@ -809,7 +809,7 @@ static BOOL debug = YES;
                     NSString *taskIdValue = [weakSelf identifierForTask:download];
                     if ([taskId isEqualToString:taskIdValue] && (state == NSURLSessionTaskStateRunning)) {
                         [download cancel];
-                        [weakSelf sendUpdateProgressForTaskId:taskId inStatus:@(STATUS_CANCELED) andProgress:@(-1)];
+                        [weakSelf sendUpdateProgressForTaskId:taskId inStatus:@(STATUS_CANCELED) andProgress:@(-1) andErrorType:@""];
                         dispatch_sync([weakSelf databaseQueue], ^{
                             [weakSelf deleteTask:taskId];
                         });
@@ -931,7 +931,7 @@ static BOOL debug = YES;
         int progress = round(totalBytesWritten * 100 / (double)totalBytesExpectedToWrite);
         NSNumber *lastProgress = _runningTaskById[taskId][KEY_PROGRESS];
         if (([lastProgress intValue] == 0 || (progress > [lastProgress intValue] + STEP_UPDATE) || progress == 100) && progress != [lastProgress intValue]) {
-            [self sendUpdateProgressForTaskId:taskId inStatus:@(STATUS_RUNNING) andProgress:@(progress)];
+            [self sendUpdateProgressForTaskId:taskId inStatus:@(STATUS_RUNNING) andProgress:@(progress) andErrorType:@""];
             _runningTaskById[taskId][KEY_PROGRESS] = @(progress);
         }
     }
@@ -962,15 +962,16 @@ static BOOL debug = YES;
     
     __typeof__(self) __weak weakSelf = self;
     if (success) {
-        [self sendUpdateProgressForTaskId:taskId inStatus:@(STATUS_COMPLETE) andProgress:@100];
+        [self sendUpdateProgressForTaskId:taskId inStatus:@(STATUS_COMPLETE) andProgress:@100 andErrorType:@""];
         dispatch_sync(databaseQueue, ^{
             [weakSelf updateTask:taskId status:STATUS_COMPLETE progress:100];
         });
     } else {
+        NSString *errorString = [NSString stringWithFormat:@"Unable to copy temp file. Error: %@", [error localizedDescription]];
         if (debug) {
             NSLog(@"Unable to copy temp file. Error: %@", [error localizedDescription]);
         }
-        [self sendUpdateProgressForTaskId:taskId inStatus:@(STATUS_FAILED) andProgress:@(-1)];
+        [self sendUpdateProgressForTaskId:taskId inStatus:@(STATUS_FAILED) andProgress:@(-1) andErrorType:errorString];
         dispatch_sync(databaseQueue, ^{
             [weakSelf updateTask:taskId status:STATUS_FAILED progress:-1];
         });
@@ -992,6 +993,8 @@ static BOOL debug = YES;
         if (debug) {
             NSLog(@"Download completed with error: %@", error != nil ? [error localizedDescription] : @(httpStatusCode));
         }
+        NSString *errorString = [NSString stringWithFormat:@"Download completed with error: %@", error != nil ? [error localizedDescription] : @(httpStatusCode)];
+
         NSString *taskId = [self identifierForTask:task ofSession:session];
         NSDictionary *taskInfo = [self loadTaskWithId:taskId];
         NSNumber *resumable = taskInfo[KEY_RESUMABLE];
@@ -1003,7 +1006,7 @@ static BOOL debug = YES;
                 status = STATUS_FAILED;
             }
             [_runningTaskById removeObjectForKey:taskId];
-            [self sendUpdateProgressForTaskId:taskId inStatus:@(status) andProgress:@(-1)];
+            [self sendUpdateProgressForTaskId:taskId inStatus:@(status) andProgress:@(-1) andErrorType:errorString];
             __typeof__(self) __weak weakSelf = self;
             dispatch_sync(databaseQueue, ^{
                 [weakSelf updateTask:taskId status:status progress:-1];

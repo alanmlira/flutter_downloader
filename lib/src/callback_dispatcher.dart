@@ -13,15 +13,15 @@ void callbackDispatcher() {
 
   backgroundChannel.setMethodCallHandler((MethodCall call) async {
     final List<dynamic> args = call.arguments;
-
     final Function callback = PluginUtilities.getCallbackFromHandle(
         CallbackHandle.fromRawHandle(args[0]));
 
     final String id = args[1];
     final int status = args[2];
     final int progress = args[3];
+    final String obs = args[4];
 
-    callback(id, DownloadTaskStatus(status), progress);
+    callback(id, DownloadTaskStatus(status), progress, obs);
   });
 
   backgroundChannel.invokeMethod('didInitializeDispatcher');
