@@ -70,6 +70,7 @@ public class DownloadWorker extends Worker implements MethodChannel.MethodCallHa
     public static final String ARG_CALLBACK_HANDLE = "callback_handle";
     public static final String ARG_DEBUG = "debug";
     public static final String IS_PENDING = "is_pending";
+    public static final String USER_AGENT = "SuaMusica/downloader (Linux; Android ${Build.VERSION.SDK_INT}; ${Build.BRAND}/${Build.MODEL})";
 
     private static final String TAG = DownloadWorker.class.getSimpleName();
     private static final int BUFFER_SIZE = 4096;
@@ -284,7 +285,8 @@ public class DownloadWorker extends Worker implements MethodChannel.MethodCallHa
                 httpConn.setReadTimeout(15000);
                 httpConn.setInstanceFollowRedirects(false); // Make the logic below easier to detect
                 // redirections
-                httpConn.setRequestProperty("User-Agent", "Mozilla/5.0...");
+                log("Using Agent " + USER_AGENT);
+                httpConn.setRequestProperty("User-Agent", USER_AGENT);
 
                 // setup request headers if it is set
                 setupHeaders(httpConn, headers);
