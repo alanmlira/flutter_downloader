@@ -5,6 +5,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.provider.MediaStore;
+import android.text.TextUtils;
 
 import androidx.core.app.NotificationManagerCompat;
 
@@ -266,7 +267,9 @@ public class FlutterDownloaderPlugin implements MethodCallHandler, FlutterPlugin
         String taskId = call.argument("task_id");
         DownloadTask task = taskDao.loadTask(taskId);
         boolean requiresStorageNotLow = call.argument("requires_storage_not_low");
+        String headers = call.argument("headers");
         if (task != null) {
+            final String  finalHeaders = TextUtils.isEmpty(headers) ? task.headers : headers;
             if (task.status == DownloadStatus.PAUSED) {
                 String filename = task.filename;
                 if (filename == null) {
@@ -275,7 +278,7 @@ public class FlutterDownloaderPlugin implements MethodCallHandler, FlutterPlugin
                 String partialFilePath = task.savedDir + File.separator + filename;
                 File partialFile = new File(partialFilePath);
                 if (partialFile.exists()) {
-                    WorkRequest request = buildRequest(task.url, task.savedDir, task.filename, task.headers,
+                    WorkRequest request = buildRequest(task.url, task.savedDir, task.filename, finalHeaders,
                             task.showNotification, task.openFileFromNotification, true, requiresStorageNotLow);
                     String newTaskId = request.getId().toString();
                     result.success(newTaskId);
@@ -298,9 +301,11 @@ public class FlutterDownloaderPlugin implements MethodCallHandler, FlutterPlugin
         String taskId = call.argument("task_id");
         DownloadTask task = taskDao.loadTask(taskId);
         boolean requiresStorageNotLow = call.argument("requires_storage_not_low");
+        String headers = call.argument("headers");
         if (task != null) {
             if (task.status == DownloadStatus.FAILED || task.status == DownloadStatus.CANCELED) {
-                WorkRequest request = buildRequest(task.url, task.savedDir, task.filename, task.headers,
+                final String  finalHeaders = TextUtils.isEmpty(headers) ? task.headers : headers;
+                WorkRequest request = buildRequest(task.url, task.savedDir, task.filename, finalHeaders,
                         task.showNotification, task.openFileFromNotification, false, requiresStorageNotLow);
                 String newTaskId = request.getId().toString();
                 result.success(newTaskId);

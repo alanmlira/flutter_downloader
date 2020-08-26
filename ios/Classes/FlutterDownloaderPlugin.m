@@ -739,6 +739,7 @@ static BOOL debug = YES;
 
 - (void)retryMethodCall:(FlutterMethodCall*)call result:(FlutterResult)result {
     NSString *taskId = call.arguments[KEY_TASK_ID];
+    NSString *headers = call.arguments[KEY_HEADERS];
     NSDictionary* taskDict = [self loadTaskWithId:taskId];
     if (taskDict != nil) {
         NSNumber* status = taskDict[KEY_STATUS];
@@ -746,8 +747,9 @@ static BOOL debug = YES;
             NSString *urlString = taskDict[KEY_URL];
             NSString *savedDir = taskDict[KEY_SAVED_DIR];
             NSString *fileName = taskDict[KEY_FILE_NAME];
-            NSString *headers = taskDict[KEY_HEADERS];
-            
+            if (headers == nil || [headers length] > 0) {
+                headers = taskDict[KEY_HEADERS];
+            }
             NSURLSessionDownloadTask *newTask = [self downloadTaskWithURL:[NSURL URLWithString:urlString] fileName:fileName andSavedDir:savedDir andHeaders:headers];
             NSString *newTaskId = [self identifierForTask:newTask];
             

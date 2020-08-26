@@ -24,6 +24,18 @@ typedef void DownloadCallback(
   String obs,
 );
 
+StringBuffer toHeaderBuilder(Map<String, String> data) {
+  final headerBuilder = StringBuffer();
+  if (data != null) {
+    headerBuilder.write('{');
+    headerBuilder.writeAll(
+        data.entries.map((entry) => '\"${entry.key}\": \"${entry.value}\"'),
+        ',');
+    headerBuilder.write('}');
+  }
+  return headerBuilder;
+}
+
 ///
 /// A convenient class wraps all api functions of **FlutterDownloader** plugin
 ///
@@ -77,22 +89,12 @@ class FlutterDownloader {
       bool requiresStorageNotLow = true}) async {
     assert(_initialized, 'FlutterDownloader.initialize() must be called first');
     assert(Directory(savedDir).existsSync());
-
-    StringBuffer headerBuilder = StringBuffer();
-    if (headers != null) {
-      headerBuilder.write('{');
-      headerBuilder.writeAll(
-          headers.entries
-              .map((entry) => '\"${entry.key}\": \"${entry.value}\"'),
-          ',');
-      headerBuilder.write('}');
-    }
     try {
       String taskId = await _channel.invokeMethod('enqueue', {
         'url': url,
         'saved_dir': savedDir,
         'file_name': fileName,
-        'headers': headerBuilder.toString(),
+        'headers': toHeaderBuilder(headers).toString(),
         'show_notification': showNotification,
         'open_file_from_notification': openFileFromNotification,
         'requires_storage_not_low': requiresStorageNotLow,
@@ -134,20 +136,10 @@ class FlutterDownloader {
       bool openFileFromNotification = true,
       bool requiresStorageNotLow = true}) async {
     assert(_initialized, 'FlutterDownloader.initialize() must be called first');
-
-    StringBuffer headerBuilder = StringBuffer();
-    if (headers != null) {
-      headerBuilder.write('{');
-      headerBuilder.writeAll(
-          headers.entries
-              .map((entry) => '\"${entry.key}\": \"${entry.value}\"'),
-          ',');
-      headerBuilder.write('}');
-    }
     try {
       List<dynamic> result = await _channel.invokeMethod('enqueueItems', {
         'downloads': downloads.map((item) => item.toMap()).toList(),
-        'headers': headerBuilder.toString(),
+        'headers': toHeaderBuilder(headers).toString(),
         'show_notification': showNotification,
         'open_file_from_notification': openFileFromNotification,
         'requires_storage_not_low': requiresStorageNotLow,
@@ -298,6 +290,7 @@ class FlutterDownloader {
   static Future<String> resume({
     @required String taskId,
     bool requiresStorageNotLow = true,
+    Map<String, String> headers,
   }) async {
     assert(_initialized, 'FlutterDownloader.initialize() must be called first');
 
@@ -305,6 +298,7 @@ class FlutterDownloader {
       return await _channel.invokeMethod('resume', {
         'task_id': taskId,
         'requires_storage_not_low': requiresStorageNotLow,
+        'headers': toHeaderBuilder(headers).toString(),
       });
     } on PlatformException catch (e) {
       print(e.message);
@@ -327,6 +321,7 @@ class FlutterDownloader {
   static Future<String> retry({
     @required String taskId,
     bool requiresStorageNotLow = true,
+    Map<String, String> headers,
   }) async {
     assert(_initialized, 'FlutterDownloader.initialize() must be called first');
 
@@ -334,6 +329,7 @@ class FlutterDownloader {
       return await _channel.invokeMethod('retry', {
         'task_id': taskId,
         'requires_storage_not_low': requiresStorageNotLow,
+        'headers': toHeaderBuilder(headers).toString(),
       });
     } on PlatformException catch (e) {
       print(e.message);
