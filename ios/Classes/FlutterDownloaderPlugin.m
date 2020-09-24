@@ -32,6 +32,7 @@
 
 #define STEP_UPDATE 10
 
+static NSDictionary* dictColumnNames = nil;
 @interface FlutterDownloaderPlugin()<NSURLSessionTaskDelegate, NSURLSessionDownloadDelegate, UIDocumentInteractionControllerDelegate>
 {
     FlutterEngine *_headlessRunner;
@@ -65,6 +66,7 @@ static BOOL debug = YES;
         _headlessRunner = [[FlutterEngine alloc] initWithName:@"FlutterDownloaderIsolate" project:nil allowHeadlessExecution:YES];
         _registrar = registrar;
         
+        dictColumnNames = @{@"id": @0, @"task_id": @1, @"url":@2,@"status": @3, @"progress": @4, @"file_name":@5,@"saved_dir": @6, @"resumable": @7 ,@"headers": @8 ,@"show_notification": @9 ,@"open_file_from_notification": @10 ,@"time_created": @11};
         _mainChannel = [FlutterMethodChannel
                         methodChannelWithName:@"vn.hunghd/downloader"
                         binaryMessenger:[registrar messenger]];
@@ -522,20 +524,50 @@ static BOOL debug = YES;
     }
 }
 
+- (NSString*) stringAtIndex:(NSArray*)record withArrColumnNames:(NSArray*)arrColumnNames withFieldName:(NSString*)fieldName
+{
+    NSUInteger index = [arrColumnNames indexOfObject:fieldName];
+    if(index == NSNotFound){
+        index = [dictColumnNames[fieldName] intValue];
+    }
+    return [record objectAtIndex:index];
+}
+- (int) intAtIndex:(NSArray*)record withArrColumnNames:(NSArray*)arrColumnNames withFieldName:(NSString*)fieldName
+{
+    NSUInteger index = [arrColumnNames indexOfObject:fieldName];
+    if(index == NSNotFound){
+        index = [dictColumnNames[fieldName] intValue];
+    }
+    return [[record objectAtIndex:index] intValue];
+}
+
+- (long long) longlongAtIndex:(NSArray*)record withArrColumnNames:(NSArray*)arrColumnNames withFieldName:(NSString*)fieldName
+{
+    NSUInteger index = [arrColumnNames indexOfObject:fieldName];
+    if(index == NSNotFound){
+        index = [dictColumnNames[fieldName] intValue];
+    }
+    return [[record objectAtIndex:index] longLongValue];
+}
 - (NSDictionary*) taskDictFromRecordArray:(NSArray*)record
 {
-    NSString *taskId = [record objectAtIndex:[_dbManager.arrColumnNames indexOfObject:@"task_id"]];
-    int status = [[record objectAtIndex:[_dbManager.arrColumnNames indexOfObject:@"status"]] intValue];
-    int progress = [[record objectAtIndex:[_dbManager.arrColumnNames indexOfObject:@"progress"]] intValue];
-    NSString *url = [record objectAtIndex:[_dbManager.arrColumnNames indexOfObject:@"url"]];
-    NSString *filename = [record objectAtIndex:[_dbManager.arrColumnNames indexOfObject:@"file_name"]];
-    NSString *savedDir = [self absoluteSavedDirPath:[record objectAtIndex:[_dbManager.arrColumnNames indexOfObject:@"saved_dir"]]];
-    NSString *headers = [record objectAtIndex:[_dbManager.arrColumnNames indexOfObject:@"headers"]];
+    NSString *taskId = [self stringAtIndex:record withArrColumnNames:_dbManager.arrColumnNames withFieldName:@"taskId"];
+    int status = [self intAtIndex:record withArrColumnNames:_dbManager.arrColumnNames withFieldName:@"status"];
+    int progress = [self intAtIndex:record withArrColumnNames:_dbManager.arrColumnNames withFieldName:@"progress"];
+    
+    NSString *url = [self stringAtIndex:record withArrColumnNames:_dbManager.arrColumnNames withFieldName:@"url"];
+    NSString *filename = [self stringAtIndex:record withArrColumnNames:_dbManager.arrColumnNames withFieldName:@"file_name"];
+    
+    NSString *savedDir = [self absoluteSavedDirPath: [self stringAtIndex:record withArrColumnNames:_dbManager.arrColumnNames withFieldName:@"saved_dir"]];
+    
+    NSString *headers = [self stringAtIndex:record withArrColumnNames:_dbManager.arrColumnNames withFieldName:@"headers"];
     headers = [self escape:headers revert:true];
-    int resumable = [[record objectAtIndex:[_dbManager.arrColumnNames indexOfObject:@"resumable"]] intValue];
-    int showNotification = [[record objectAtIndex:[_dbManager.arrColumnNames indexOfObject:@"show_notification"]] intValue];
-    int openFileFromNotification = [[record objectAtIndex:[_dbManager.arrColumnNames indexOfObject:@"open_file_from_notification"]] intValue];
-    long long timeCreated = [[record objectAtIndex:[_dbManager.arrColumnNames indexOfObject:@"time_created"]] longLongValue];
+    
+    int resumable = [self intAtIndex:record withArrColumnNames:_dbManager.arrColumnNames withFieldName:@"resumable"];
+    int showNotification = [self intAtIndex:record withArrColumnNames:_dbManager.arrColumnNames withFieldName:@"show_notification"];
+    int openFileFromNotification = [self intAtIndex:record withArrColumnNames:_dbManager.arrColumnNames withFieldName:@"open_file_from_notification"];
+    
+    long long timeCreated =[self longlongAtIndex:record withArrColumnNames:_dbManager.arrColumnNames withFieldName:@"time_created"];
     return [NSDictionary dictionaryWithObjectsAndKeys:taskId, KEY_TASK_ID, @(status), KEY_STATUS, @(progress), KEY_PROGRESS, url, KEY_URL, filename, KEY_FILE_NAME, headers, KEY_HEADERS, savedDir, KEY_SAVED_DIR, [NSNumber numberWithBool:(resumable == 1)], KEY_RESUMABLE, [NSNumber numberWithBool:(showNotification == 1)], KEY_SHOW_NOTIFICATION, [NSNumber numberWithBool:(openFileFromNotification == 1)], KEY_OPEN_FILE_FROM_NOTIFICATION, @(timeCreated), KEY_TIME_CREATED, nil];
 }
 
@@ -600,7 +632,7 @@ static BOOL debug = YES;
         });
         dispatch_async(dispatch_get_main_queue(), ^{
             result(taskId);
-            [self sendUpdateProgressForTaskId:taskId inStatus:@(STATUS_ENQUEUED) andProgress:@0 andErrorType:@""]; 
+            [self sendUpdateProgressForTaskId:taskId inStatus:@(STATUS_ENQUEUED) andProgress:@0 andErrorType:@""];
         });
     });
 }
