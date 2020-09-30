@@ -7,7 +7,7 @@ import android.database.sqlite.SQLiteOpenHelper;
 import vn.hunghd.flutterdownloader.TaskContract.TaskEntry;
 
 public class TaskDbHelper extends SQLiteOpenHelper {
-    public static final int DATABASE_VERSION = 2;
+    public static final int DATABASE_VERSION = 3;
     public static final String DATABASE_NAME = "download_tasks.db";
 
     private static TaskDbHelper instance = null;
@@ -26,8 +26,10 @@ public class TaskDbHelper extends SQLiteOpenHelper {
                     TaskEntry.COLUMN_NAME_RESUMABLE + " TINYINT DEFAULT 0, " +
                     TaskEntry.COLUMN_NAME_SHOW_NOTIFICATION + " TINYINT DEFAULT 0, " +
                     TaskEntry.COLUMN_NAME_OPEN_FILE_FROM_NOTIFICATION + " TINYINT DEFAULT 0, " +
-                    TaskEntry.COLUMN_NAME_TIME_CREATED + " INTEGER DEFAULT 0"
-                    + ")";
+                    TaskEntry.COLUMN_NAME_TIME_CREATED + " INTEGER DEFAULT 0, " +
+                    TaskEntry.COLUMN_NAME_ALBUM_NAME + " TEXT, " +
+                    TaskEntry.COLUMN_NAME_ARTIST_NAME + " TEXT" +
+                    ")";
 
     private static final String SQL_DELETE_ENTRIES =
             "DROP TABLE IF EXISTS " + TaskEntry.TABLE_NAME;
