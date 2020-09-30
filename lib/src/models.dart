@@ -37,15 +37,17 @@ class DownloadItem {
   final String url;
   final String savedDir;
   final String fileName;
+  final String albumName;
+  final String artistName;
 
-  DownloadItem({this.url, this.savedDir, this.fileName});
+  DownloadItem({this.url, this.savedDir, this.fileName, this.albumName, this.artistName});
 
   @override
   String toString() =>
-      "DownloadItem(url: $url, savedDir: $savedDir, fileName: $fileName)";
+      "DownloadItem(url: $url, savedDir: $savedDir, fileName: $fileName, albumName: $albumName)";
 
   Map<String, String> toMap() =>
-      {"url": url, "saved_dir": savedDir, "file_name": fileName};
+      {"url": url, "saved_dir": savedDir, "file_name": fileName, "music_album": albumName, "music_artist": artistName};
 }
 
 ///
