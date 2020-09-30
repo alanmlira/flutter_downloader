@@ -169,6 +169,8 @@ public class FlutterDownloaderPlugin implements MethodCallHandler, FlutterPlugin
         String savedDir = call.argument("saved_dir");
         String filename = call.argument("file_name");
         String headers = call.argument("headers");
+        String albumName = call.argument("music_album");
+        String artistName = call.argument("music_artist");
         boolean showNotification = call.argument("show_notification");
         boolean openFileFromNotification = call.argument("open_file_from_notification");
         boolean requiresStorageNotLow = call.argument("requires_storage_not_low");
@@ -179,7 +181,7 @@ public class FlutterDownloaderPlugin implements MethodCallHandler, FlutterPlugin
         result.success(taskId);
         sendUpdateProgress(taskId, DownloadStatus.ENQUEUED, 0,"");
         taskDao.insertOrUpdateNewTask(taskId, url, DownloadStatus.ENQUEUED, 0, filename, savedDir, headers,
-                showNotification, openFileFromNotification);
+                showNotification, openFileFromNotification, albumName, artistName);
     }
 
     private void enqueueItems(MethodCall call, MethodChannel.Result result) {
@@ -196,6 +198,8 @@ public class FlutterDownloaderPlugin implements MethodCallHandler, FlutterPlugin
             String url = downloads.get(i).get("url");
             String savedDir = downloads.get(i).get("saved_dir");
             String filename = downloads.get(i).get("file_name");
+            String albumName = downloads.get(i).get("music_album");
+            String artistName = downloads.get(i).get("music_artist");
 
             WorkRequest request = buildRequest(url, savedDir, filename, headers, showNotification,
                     openFileFromNotification, false, requiresStorageNotLow);
@@ -204,7 +208,7 @@ public class FlutterDownloaderPlugin implements MethodCallHandler, FlutterPlugin
             taskIds.add(taskId);
             sendUpdateProgress(taskId, DownloadStatus.ENQUEUED, 0,"");
             taskDao.insertOrUpdateNewTask(taskId, url, DownloadStatus.ENQUEUED, 0, filename, savedDir, headers,
-                    showNotification, openFileFromNotification);
+                    showNotification, openFileFromNotification, albumName, artistName);
         }
 
         result.success(taskIds);
