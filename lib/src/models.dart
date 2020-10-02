@@ -39,15 +39,16 @@ class DownloadItem {
   final String fileName;
   final String albumName;
   final String artistName;
+  final String smExtras;
 
-  DownloadItem({this.url, this.savedDir, this.fileName, this.albumName, this.artistName});
+  DownloadItem({this.url, this.savedDir, this.fileName, this.albumName, this.artistName, this.smExtras});
 
   @override
   String toString() =>
-      "DownloadItem(url: $url, savedDir: $savedDir, fileName: $fileName, albumName: $albumName)";
+      "DownloadItem(url: $url, savedDir: $savedDir, fileName: $fileName, albumName: $albumName, artistName: $artistName, albumName: $albumName)";
 
   Map<String, String> toMap() =>
-      {"url": url, "saved_dir": savedDir, "file_name": fileName, "music_album": albumName, "music_artist": artistName};
+      {"url": url, "saved_dir": savedDir, "file_name": fileName, "music_album": albumName, "music_artist": artistName, "sm_extras": smExtras}};
 }
 
 ///
@@ -69,6 +70,9 @@ class DownloadTask {
   final String filename;
   final String savedDir;
   final int timeCreated;
+  final String albumName;
+  final String artistName;
+  final String smExtras;
 
   DownloadTask(
       {this.taskId,
@@ -77,9 +81,14 @@ class DownloadTask {
       this.url,
       this.filename,
       this.savedDir,
-      this.timeCreated});
+      this.timeCreated,
+      this.albumName,
+      this.artistName,
+      this.smExtras});
 
   @override
   String toString() =>
-      "DownloadTask(taskId: $taskId, status: $status, progress: $progress, url: $url, filename: $filename, savedDir: $savedDir, timeCreated: $timeCreated)";
+      "DownloadTask(taskId: $taskId, status: $status, progress: $progress, "
+          "url: $url, filename: $filename, savedDir: $savedDir, timeCreated: $timeCreated, "
+          "albumName: $albumName, artistName: $artistName, smExtras: $smExtras)";
 }

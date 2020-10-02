@@ -88,7 +88,7 @@ class FlutterDownloader {
       bool openFileFromNotification = true,
       bool requiresStorageNotLow = true,
       String albumName,
-      String artistName}) async {
+      String artistName, String smExtras}) async {
     assert(_initialized, 'FlutterDownloader.initialize() must be called first');
     assert(Directory(savedDir).existsSync());
     try {
@@ -102,6 +102,7 @@ class FlutterDownloader {
         'requires_storage_not_low': requiresStorageNotLow,
         'music_album': albumName,
         'music_artist': artistName,
+        'sm_extras': artistName,
       });
       return taskId;
     } on PlatformException catch (e) {
@@ -178,7 +179,11 @@ class FlutterDownloader {
               url: item['url'],
               filename: item['file_name'],
               savedDir: item['saved_dir'],
-              timeCreated: item['time_created']))
+              timeCreated: item['time_created'],
+              albumName: item['music_album'],
+              artistName: item['music_artist'],
+              smExtras: item['sm_extras'],
+      ))
           .toList();
     } on PlatformException catch (e) {
       print(e.message);
@@ -221,7 +226,11 @@ class FlutterDownloader {
               url: item['url'],
               filename: item['file_name'],
               savedDir: item['saved_dir'],
-              timeCreated: item['time_created']))
+              timeCreated: item['time_created'],
+              albumName: item['music_album'],
+              artistName: item['music_artist'],
+              smExtras: item['sm_extras'],
+      ))
           .toList();
     } on PlatformException catch (e) {
       print(e.message);
