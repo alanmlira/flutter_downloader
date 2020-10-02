@@ -71,6 +71,7 @@ public class DownloadWorker extends Worker implements MethodChannel.MethodCallHa
     public static final String ARG_DEBUG = "debug";
     public static final String ARG_MUSIC_ARTIST = "music_artist";
     public static final String ARG_MUSIC_ALBUM = "music_album";
+    public static final String ARG_SM_EXTRAS = "sm_extras";
 
     public static final String IS_PENDING = "is_pending";
     public static final String USER_AGENT = "SuaMusica/downloader (Linux; Android "+Build.VERSION.SDK_INT+"; "+Build.BRAND+"/"+Build.MODEL+")";
@@ -95,7 +96,7 @@ public class DownloadWorker extends Worker implements MethodChannel.MethodCallHa
     private boolean debug;
     private int lastProgress = 0;
     private int primaryId;
-    private String msgStarted, msgInProgress, msgCanceled, msgFailed, msgPaused, msgComplete, argMusicArtist, argMusicAlbum;
+    private String msgStarted, msgInProgress, msgCanceled, msgFailed, msgPaused, msgComplete, argMusicArtist, argMusicAlbum, argSMExtras;
 
     public DownloadWorker(@NonNull final Context context, @NonNull WorkerParameters params) {
         super(context, params);
@@ -182,6 +183,7 @@ public class DownloadWorker extends Worker implements MethodChannel.MethodCallHa
         debug = getInputData().getBoolean(ARG_DEBUG, false);
         argMusicArtist = getInputData().getString(ARG_MUSIC_ARTIST);
         argMusicAlbum = getInputData().getString(ARG_MUSIC_ALBUM);
+        argSMExtras = getInputData().getString(ARG_SM_EXTRAS);
 
         Resources res = getApplicationContext().getResources();
         msgStarted = res.getString(R.string.flutter_downloader_notification_started);
@@ -638,6 +640,10 @@ public class DownloadWorker extends Worker implements MethodChannel.MethodCallHa
 
                         if (argMusicAlbum != null) {
                             values.put(MediaStore.Audio.Media.ALBUM, argMusicAlbum);
+                        }
+
+                        if (argSMExtras != null) {
+                            values.put(MediaStore.Audio.Media.BOOKMARK, argSMExtras);
                         }
 
                         values.put(IS_PENDING, 1);

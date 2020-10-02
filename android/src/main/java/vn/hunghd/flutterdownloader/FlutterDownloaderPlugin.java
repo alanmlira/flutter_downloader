@@ -118,7 +118,10 @@ public class FlutterDownloaderPlugin implements MethodCallHandler, FlutterPlugin
         }
     }
 
-    private WorkRequest buildRequest(String url, String savedDir, String filename, String headers, boolean showNotification, boolean openFileFromNotification, boolean isResume, boolean requiresStorageNotLow) {
+    private WorkRequest buildRequest(String url, String savedDir, String filename, String headers,
+                                     boolean showNotification, boolean openFileFromNotification,
+                                     boolean isResume, boolean requiresStorageNotLow, String albumName,
+                                     String artistName, String smExtras) {
         WorkRequest request = new OneTimeWorkRequest.Builder(DownloadWorker.class)
                 .setConstraints(new Constraints.Builder().setRequiresStorageNotLow(requiresStorageNotLow)
                         .setRequiredNetworkType(NetworkType.CONNECTED).build())
@@ -132,6 +135,9 @@ public class FlutterDownloaderPlugin implements MethodCallHandler, FlutterPlugin
                         .putBoolean(DownloadWorker.ARG_IS_RESUME, isResume)
                         .putLong(DownloadWorker.ARG_CALLBACK_HANDLE, callbackHandle)
                         .putBoolean(DownloadWorker.ARG_DEBUG, debugMode == 1)
+                        .putString(DownloadWorker.ARG_MUSIC_ALBUM, albumName)
+                        .putString(DownloadWorker.ARG_MUSIC_ALBUM, artistName)
+                        .putString(DownloadWorker.ARG_SM_EXTRAS, smExtras)
                         .build()
                 )
                 .build();
@@ -171,17 +177,18 @@ public class FlutterDownloaderPlugin implements MethodCallHandler, FlutterPlugin
         String headers = call.argument("headers");
         String albumName = call.argument("music_album");
         String artistName = call.argument("music_artist");
+        String smExtras = call.argument("sm_extras");
         boolean showNotification = call.argument("show_notification");
         boolean openFileFromNotification = call.argument("open_file_from_notification");
         boolean requiresStorageNotLow = call.argument("requires_storage_not_low");
         WorkRequest request = buildRequest(url, savedDir, filename, headers, showNotification, openFileFromNotification,
-                false, requiresStorageNotLow);
+                false, requiresStorageNotLow, albumName, artistName, smExtras);
         WorkManager.getInstance(context).enqueue(request);
         String taskId = request.getId().toString();
         result.success(taskId);
         sendUpdateProgress(taskId, DownloadStatus.ENQUEUED, 0,"");
         taskDao.insertOrUpdateNewTask(taskId, url, DownloadStatus.ENQUEUED, 0, filename, savedDir, headers,
-                showNotification, openFileFromNotification, albumName, artistName);
+                showNotification, openFileFromNotification, albumName, artistName, smExtras);
     }
 
     private void enqueueItems(MethodCall call, MethodChannel.Result result) {
@@ -200,15 +207,16 @@ public class FlutterDownloaderPlugin implements MethodCallHandler, FlutterPlugin
             String filename = downloads.get(i).get("file_name");
             String albumName = downloads.get(i).get("music_album");
             String artistName = downloads.get(i).get("music_artist");
+            String smExtras = downloads.get(i).get("sm_extras");
 
             WorkRequest request = buildRequest(url, savedDir, filename, headers, showNotification,
-                    openFileFromNotification, false, requiresStorageNotLow);
+                    openFileFromNotification, false, requiresStorageNotLow, albumName, artistName, smExtras);
             WorkManager.getInstance(context).enqueue(request);
             String taskId = request.getId().toString();
             taskIds.add(taskId);
             sendUpdateProgress(taskId, DownloadStatus.ENQUEUED, 0,"");
             taskDao.insertOrUpdateNewTask(taskId, url, DownloadStatus.ENQUEUED, 0, filename, savedDir, headers,
-                    showNotification, openFileFromNotification, albumName, artistName);
+                    showNotification, openFileFromNotification, albumName, artistName, smExtras);
         }
 
         result.success(taskIds);
@@ -226,6 +234,9 @@ public class FlutterDownloaderPlugin implements MethodCallHandler, FlutterPlugin
             item.put("file_name", task.filename);
             item.put("saved_dir", task.savedDir);
             item.put("time_created", task.timeCreated);
+            item.put("music_album", task.albumName);
+            item.put("music_artist", task.artistName);
+            item.put("sm_extras", task.smExtras);
             array.add(item);
         }
         result.success(array);
@@ -244,6 +255,9 @@ public class FlutterDownloaderPlugin implements MethodCallHandler, FlutterPlugin
             item.put("file_name", task.filename);
             item.put("saved_dir", task.savedDir);
             item.put("time_created", task.timeCreated);
+            item.put("music_album", task.albumName);
+            item.put("music_artist", task.artistName);
+            item.put("sm_extras", task.smExtras);
             array.add(item);
         }
         result.success(array);
@@ -283,7 +297,8 @@ public class FlutterDownloaderPlugin implements MethodCallHandler, FlutterPlugin
                 File partialFile = new File(partialFilePath);
                 if (partialFile.exists()) {
                     WorkRequest request = buildRequest(task.url, task.savedDir, task.filename, finalHeaders,
-                            task.showNotification, task.openFileFromNotification, true, requiresStorageNotLow);
+                            task.showNotification, task.openFileFromNotification, true, requiresStorageNotLow,
+                            task.albumName, task.artistName, task.smExtras);
                     String newTaskId = request.getId().toString();
                     result.success(newTaskId);
                     sendUpdateProgress(newTaskId, DownloadStatus.RUNNING, task.progress,"");
@@ -310,7 +325,8 @@ public class FlutterDownloaderPlugin implements MethodCallHandler, FlutterPlugin
             if (task.status == DownloadStatus.FAILED || task.status == DownloadStatus.CANCELED) {
                 final String  finalHeaders = TextUtils.isEmpty(headers) ? task.headers : headers;
                 WorkRequest request = buildRequest(task.url, task.savedDir, task.filename, finalHeaders,
-                        task.showNotification, task.openFileFromNotification, false, requiresStorageNotLow);
+                        task.showNotification, task.openFileFromNotification, false, requiresStorageNotLow,
+                        task.albumName, task.artistName, task.smExtras);
                 String newTaskId = request.getId().toString();
                 result.success(newTaskId);
                 sendUpdateProgress(newTaskId, DownloadStatus.ENQUEUED, task.progress,"");

@@ -16,10 +16,11 @@ public class DownloadTask {
     long timeCreated;
     String albumName;
     String artistName;
+    String smExtras;
 
     DownloadTask(int primaryId, String taskId, int status, int progress, String url, String filename, String savedDir,
                  String headers, String mimeType, boolean resumable, boolean showNotification, boolean openFileFromNotification,
-                 long timeCreated, String albumName, String artistName) {
+                 long timeCreated, String albumName, String artistName, String smExtras) {
         this.primaryId = primaryId;
         this.taskId = taskId;
         this.status = status;
@@ -35,10 +36,11 @@ public class DownloadTask {
         this.timeCreated = timeCreated;
         this.albumName = albumName;
         this.artistName = artistName;
+        this.smExtras = smExtras;
     }
 
     @Override
     public String toString() {
-        return "DownloadTask{taskId=" + taskId + ",status=" + status + ",progress=" + progress + ",url=" + url + ",filename=" + filename + ",savedDir=" + savedDir + ",headers=" + headers + ",albumName=" + albumName + ",artistName=" + artistName + "}";
+        return "DownloadTask{taskId=" + taskId + ",status=" + status + ",progress=" + progress + ",url=" + url + ",filename=" + filename + ",savedDir=" + savedDir + ",headers=" + headers + ",albumName=" + albumName + ",artistName=" + artistName + ",smExtras=" + smExtras + "}";
     }
 }
