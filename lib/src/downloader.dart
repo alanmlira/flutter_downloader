@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 import 'dart:ui';
+import 'dart:convert';
 
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
@@ -88,7 +89,8 @@ class FlutterDownloader {
       bool openFileFromNotification = true,
       bool requiresStorageNotLow = true,
       String albumName,
-      String artistName, String smExtras}) async {
+      String artistName,
+      Map<String, String> smExtras}) async {
     assert(_initialized, 'FlutterDownloader.initialize() must be called first');
     assert(Directory(savedDir).existsSync());
     try {
@@ -102,7 +104,7 @@ class FlutterDownloader {
         'requires_storage_not_low': requiresStorageNotLow,
         'music_album': albumName,
         'music_artist': artistName,
-        'sm_extras': artistName,
+        'sm_extras': json.encode(smExtras),
       });
       return taskId;
     } on PlatformException catch (e) {
