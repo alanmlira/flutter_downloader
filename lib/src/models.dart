@@ -48,7 +48,7 @@ class DownloadItem {
       "DownloadItem(url: $url, savedDir: $savedDir, fileName: $fileName, albumName: $albumName, artistName: $artistName, albumName: $albumName)";
 
   Map<String, String> toMap() =>
-      {"url": url, "saved_dir": savedDir, "file_name": fileName, "music_album": albumName, "music_artist": artistName, "sm_extras": smExtras}};
+      {"url": url, "saved_dir": savedDir, "file_name": fileName, "music_album": albumName, "music_artist": artistName, "sm_extras": smExtras };
 }
 
 ///
