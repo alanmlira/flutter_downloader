@@ -194,7 +194,8 @@ public class DownloadWorker extends Worker implements MethodChannel.MethodCallHa
         msgComplete = res.getString(R.string.flutter_downloader_notification_complete);
 
         log("DownloadWorker{url=" + url + ",filename=" + filename + ",savedDir=" + savedDir
-                + ",header=" + headers + ",isResume=" + isResume);
+                + ",header=" + headers + ",isResume=" + isResume + ",argMusicArtist=" + argMusicArtist
+                + ",argMusicAlbum=" + argMusicAlbum + ",argSMExtras=" + argSMExtras);
 
         showNotification = getInputData().getBoolean(ARG_SHOW_NOTIFICATION, false);
         clickToOpenDownloadedFile =
