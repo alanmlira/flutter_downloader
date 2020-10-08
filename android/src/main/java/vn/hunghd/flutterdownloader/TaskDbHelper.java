@@ -59,8 +59,15 @@ public class TaskDbHelper extends SQLiteOpenHelper {
 
     @Override
     public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
-        db.execSQL(SQL_DELETE_ENTRIES);
-        onCreate(db);
+        if (oldVersion < 3) {
+            db.execSQL("ALTER TABLE " + TaskEntry.TABLE_NAME + " ADD COLUMN " + TaskEntry.COLUMN_NAME_ALBUM_NAME + " TEXT;");
+            db.execSQL("ALTER TABLE " + TaskEntry.TABLE_NAME + " ADD COLUMN " + TaskEntry.COLUMN_NAME_ARTIST_NAME + " TEXT;");
+            db.execSQL("ALTER TABLE " + TaskEntry.TABLE_NAME + " ADD COLUMN " + TaskEntry.COLUMN_NAME_SM_EXTRAS + " TEXT;");
+        } else {
+            // default migration. should only be a fallback solution
+            db.execSQL(SQL_DELETE_ENTRIES);
+            onCreate(db);
+        }
     }
 
     @Override
