@@ -20,6 +20,9 @@ public class TaskContract {
         public static final String COLUMN_NAME_SHOW_NOTIFICATION = "show_notification";
         public static final String COLUMN_NAME_OPEN_FILE_FROM_NOTIFICATION = "open_file_from_notification";
         public static final String COLUMN_NAME_TIME_CREATED = "time_created";
+        public static final String COLUMN_NAME_ALBUM_NAME = "music_album";
+        public static final String COLUMN_NAME_ARTIST_NAME = "music_artist";
+        public static final String COLUMN_NAME_SM_EXTRAS = "sm_extras";
     }
 
 }

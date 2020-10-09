@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 import 'dart:ui';
+import 'dart:convert';
 
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
@@ -86,7 +87,10 @@ class FlutterDownloader {
       Map<String, String> headers,
       bool showNotification = true,
       bool openFileFromNotification = true,
-      bool requiresStorageNotLow = true}) async {
+      bool requiresStorageNotLow = true,
+      String albumName,
+      String artistName,
+      Map<String, String> smExtras}) async {
     assert(_initialized, 'FlutterDownloader.initialize() must be called first');
     assert(Directory(savedDir).existsSync());
     try {
@@ -98,6 +102,9 @@ class FlutterDownloader {
         'show_notification': showNotification,
         'open_file_from_notification': openFileFromNotification,
         'requires_storage_not_low': requiresStorageNotLow,
+        'music_album': albumName,
+        'music_artist': artistName,
+        'sm_extras': json.encode(smExtras),
       });
       return taskId;
     } on PlatformException catch (e) {
@@ -174,7 +181,11 @@ class FlutterDownloader {
               url: item['url'],
               filename: item['file_name'],
               savedDir: item['saved_dir'],
-              timeCreated: item['time_created']))
+              timeCreated: item['time_created'],
+              albumName: item['music_album'],
+              artistName: item['music_artist'],
+              smExtras: item['sm_extras'],
+      ))
           .toList();
     } on PlatformException catch (e) {
       print(e.message);
@@ -217,7 +228,11 @@ class FlutterDownloader {
               url: item['url'],
               filename: item['file_name'],
               savedDir: item['saved_dir'],
-              timeCreated: item['time_created']))
+              timeCreated: item['time_created'],
+              albumName: item['music_album'],
+              artistName: item['music_artist'],
+              smExtras: item['sm_extras'],
+      ))
           .toList();
     } on PlatformException catch (e) {
       print(e.message);
