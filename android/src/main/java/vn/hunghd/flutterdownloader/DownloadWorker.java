@@ -635,17 +635,15 @@ public class DownloadWorker extends Worker implements MethodChannel.MethodCallHa
                         values.put(MediaStore.Audio.Media.DATA, filePath);
                         values.put(MediaStore.Audio.Media.SIZE, file.getTotalSpace());
 
-                        if (argMusicArtist != null) {
-                            values.put(MediaStore.Audio.Media.ARTIST, argMusicArtist);
-                        }
+                        values.put(MediaStore.Audio.Media.ARTIST, argMusicArtist);
+                        values.put(MediaStore.Audio.Media.ALBUM, argMusicAlbum);
+                        values.put(MediaStore.Audio.Media.BOOKMARK, argSMExtras);
 
-                        if (argMusicAlbum != null) {
-                            values.put(MediaStore.Audio.Media.ALBUM, argMusicAlbum);
-                        }
-
-                        if (argSMExtras != null) {
-                            values.put(MediaStore.Audio.Media.BOOKMARK, argSMExtras);
-                        }
+                        // For reasons I could not understand, Android SDK is failing to find the
+                        // constant MediaStore.Audio.Media.ALBUM_ARTIST in pre-compilation time and
+                        // obligated me to reference the column string value.
+                        // However it's working just fine.
+                        values.put("album_artist", argMusicArtist);
 
                         values.put(IS_PENDING, 1);
                         log("insert " + values + " to MediaStore");
