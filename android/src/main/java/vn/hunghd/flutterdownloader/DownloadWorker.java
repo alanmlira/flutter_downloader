@@ -626,7 +626,7 @@ public class DownloadWorker extends Worker implements MethodChannel.MethodCallHa
             } else if (contentType.startsWith("audio") || contentType.contains("octet-stream")) {
                 File file = new File(filePath);
                 if (file.exists()) {
-                    if (android.os.Build.VERSION.SDK_INT >= 29) {
+                    if (android.os.Build.VERSION.SDK_INT >= 23) {
                         ContentValues values = new ContentValues();
                         values.put(MediaStore.Audio.Media.TITLE, fileName);
                         values.put(MediaStore.Audio.Media.DISPLAY_NAME, fileName);
@@ -637,7 +637,6 @@ public class DownloadWorker extends Worker implements MethodChannel.MethodCallHa
 
                         values.put(MediaStore.Audio.Media.ARTIST, argMusicArtist);
                         values.put(MediaStore.Audio.Media.ALBUM, argMusicAlbum);
-                        values.put(MediaStore.Audio.Media.BOOKMARK, argSMExtras);
 
                         // For reasons I could not understand, Android SDK is failing to find the
                         // constant MediaStore.Audio.Media.ALBUM_ARTIST in pre-compilation time and
@@ -655,14 +654,20 @@ public class DownloadWorker extends Worker implements MethodChannel.MethodCallHa
                             values.put(IS_PENDING, 0);
                             contentResolver.update(uriSavedMusic, values, null, null);
                         }
+
+                        if (android.os.Build.VERSION.SDK_INT < 29) callScanFileIntent(file);
                     } else {
-                        Intent scanFileIntent =
-                                new Intent(Intent.ACTION_MEDIA_SCANNER_SCAN_FILE, Uri.fromFile(file));
-                        getApplicationContext().sendBroadcast(scanFileIntent);
+                        callScanFileIntent(file);
                     }
                 }
             }
         }
+    }
+
+    private void callScanFileIntent(File file) {
+        Intent scanFileIntent =
+                new Intent(Intent.ACTION_MEDIA_SCANNER_SCAN_FILE, Uri.fromFile(file));
+        getApplicationContext().sendBroadcast(scanFileIntent);
     }
 
     private void log(String message) {
