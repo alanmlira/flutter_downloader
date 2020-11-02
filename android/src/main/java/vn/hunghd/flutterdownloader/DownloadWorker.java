@@ -50,6 +50,13 @@ import java.util.regex.Pattern;
 import androidx.work.Worker;
 import androidx.work.WorkerParameters;
 
+import com.mpatric.mp3agic.ID3v1Tag;
+import com.mpatric.mp3agic.ID3v24Tag;
+import com.mpatric.mp3agic.InvalidDataException;
+import com.mpatric.mp3agic.Mp3File;
+import com.mpatric.mp3agic.NotSupportedException;
+import com.mpatric.mp3agic.UnsupportedTagException;
+
 import io.flutter.plugin.common.MethodCall;
 import io.flutter.plugin.common.MethodChannel;
 import io.flutter.plugin.common.PluginRegistry;
@@ -639,6 +646,15 @@ public class DownloadWorker extends Worker implements MethodChannel.MethodCallHa
                         values.put(MediaStore.Audio.Media.ALBUM, argMusicAlbum);
                         values.put(MediaStore.Audio.Media.BOOKMARK, argSMExtras);
 
+                        try {
+                            Mp3File mp3File = new Mp3File(filePath);
+                            ID3v1Tag id3v1Tag = new ID3v1Tag();
+                            id3v1Tag.setComment(argSMExtras);
+                            mp3File.setId3v1Tag(id3v1Tag);
+                            mp3File.setCustomTag(argSMExtras.getBytes());
+                        } catch (IOException | UnsupportedTagException | InvalidDataException e) {
+                            e.printStackTrace();
+                        }
                         // For reasons I could not understand, Android SDK is failing to find the
                         // constant MediaStore.Audio.Media.ALBUM_ARTIST in pre-compilation time and
                         // obligated me to reference the column string value.
