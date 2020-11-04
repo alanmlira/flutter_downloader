@@ -651,9 +651,22 @@ public class DownloadWorker extends Worker implements MethodChannel.MethodCallHa
                             ID3v1Tag id3v1Tag = new ID3v1Tag();
                             id3v1Tag.setComment(argSMExtras);
                             mp3File.setId3v1Tag(id3v1Tag);
+
+                            ID3v24Tag id3v2Tag = new ID3v24Tag();
+                            id3v2Tag.setAlbum(argMusicAlbum);
+                            id3v2Tag.setAlbumArtist(argMusicArtist);
+                            mp3File.setId3v2Tag(id3v2Tag);
+
                             mp3File.setCustomTag(argSMExtras.getBytes());
-                        } catch (IOException | UnsupportedTagException | InvalidDataException e) {
-                            e.printStackTrace();
+                            String newFilename = filePath + ".tmp";
+                            mp3File.save(newFilename);
+
+                            File from = new File(newFilename);
+                            from.renameTo(file);
+
+                            Log.i(TAG, "Successfully set ID3v1 tags");
+                        } catch (Exception e) {
+                            Log.e(TAG, "Failed to set ID3v1 tags", e);
                         }
                         // For reasons I could not understand, Android SDK is failing to find the
                         // constant MediaStore.Audio.Media.ALBUM_ARTIST in pre-compilation time and
