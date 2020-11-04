@@ -136,7 +136,7 @@ public class FlutterDownloaderPlugin implements MethodCallHandler, FlutterPlugin
                         .putLong(DownloadWorker.ARG_CALLBACK_HANDLE, callbackHandle)
                         .putBoolean(DownloadWorker.ARG_DEBUG, debugMode == 1)
                         .putString(DownloadWorker.ARG_MUSIC_ALBUM, albumName)
-                        .putString(DownloadWorker.ARG_MUSIC_ALBUM, artistName)
+                        .putString(DownloadWorker.ARG_MUSIC_ARTIST, artistName)
                         .putString(DownloadWorker.ARG_ARTIST_ID, artistId)
                         .putString(DownloadWorker.ARG_PLAYLIST_ID, playlistId)
                         .putString(DownloadWorker.ARG_ALBUM_ID, albumId)

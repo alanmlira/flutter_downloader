@@ -218,7 +218,7 @@ public class DownloadWorker extends Worker implements MethodChannel.MethodCallHa
         msgPaused = res.getString(R.string.flutter_downloader_notification_paused);
         msgComplete = res.getString(R.string.flutter_downloader_notification_complete);
 
-        log("DownloadWorker{url=" + url + ",filename=" + filename + ",savedDir=" + savedDir
+        Log.i(TAG, "DownloadWorker{url=" + url + ",filename=" + filename + ",savedDir=" + savedDir
                 + ",header=" + headers + ",isResume=" + isResume + ",argMusicArtist=" + argMusicArtist
                 + ",argMusicAlbum=" + argMusicAlbum + ",argArtistId=" + argArtistId +
                 ",argArtistId=" + argArtistId + ",argPlaylistId=" + argPlaylistId +
