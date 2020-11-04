@@ -16,11 +16,14 @@ public class DownloadTask {
     long timeCreated;
     String albumName;
     String artistName;
-    String smExtras;
+    String artistId;
+    String playlistId;
+    String albumId;
+    String musicId;
 
     DownloadTask(int primaryId, String taskId, int status, int progress, String url, String filename, String savedDir,
                  String headers, String mimeType, boolean resumable, boolean showNotification, boolean openFileFromNotification,
-                 long timeCreated, String albumName, String artistName, String smExtras) {
+                 long timeCreated, String albumName, String artistName, String artistId, String playlistId, String albumId, String musicId) {
         this.primaryId = primaryId;
         this.taskId = taskId;
         this.status = status;
@@ -36,11 +39,20 @@ public class DownloadTask {
         this.timeCreated = timeCreated;
         this.albumName = albumName;
         this.artistName = artistName;
-        this.smExtras = smExtras;
+        this.artistId = artistId;
+        this.playlistId = playlistId;
+        this.albumId = albumId;
+        this.musicId = musicId;
     }
 
     @Override
     public String toString() {
-        return "DownloadTask{taskId=" + taskId + ",status=" + status + ",progress=" + progress + ",url=" + url + ",filename=" + filename + ",savedDir=" + savedDir + ",headers=" + headers + ",albumName=" + albumName + ",artistName=" + artistName + ",smExtras=" + smExtras + "}";
+        return "DownloadTask{taskId=" + taskId + ",status=" + status + ",progress=" + progress +
+                ",url=" + url + ",filename=" + filename + ",savedDir=" + savedDir + ",headers=" +
+                headers + ",albumName=" + albumName + ",artistName=" + artistName +
+                ",artistId=" + artistId +
+                ",playlistId=" + playlistId +
+                ",albumId=" + albumId +
+                ",musicId=" + musicId + "}";
     }
 }

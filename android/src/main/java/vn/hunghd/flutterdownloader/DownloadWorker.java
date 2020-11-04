@@ -79,6 +79,10 @@ public class DownloadWorker extends Worker implements MethodChannel.MethodCallHa
     public static final String ARG_MUSIC_ARTIST = "music_artist";
     public static final String ARG_MUSIC_ALBUM = "music_album";
     public static final String ARG_SM_EXTRAS = "sm_extras";
+    public static final String ARG_ARTIST_ID = "artist_id";
+    public static final String ARG_PLAYLIST_ID = "playlist_id";
+    public static final String ARG_ALBUM_ID = "album_id";
+    public static final String ARG_MUSIC_ID = "music_id";
 
     public static final String IS_PENDING = "is_pending";
     public static final String USER_AGENT = "SuaMusica/downloader (Linux; Android "+Build.VERSION.SDK_INT+"; "+Build.BRAND+"/"+Build.MODEL+")";
@@ -103,7 +107,18 @@ public class DownloadWorker extends Worker implements MethodChannel.MethodCallHa
     private boolean debug;
     private int lastProgress = 0;
     private int primaryId;
-    private String msgStarted, msgInProgress, msgCanceled, msgFailed, msgPaused, msgComplete, argMusicArtist, argMusicAlbum, argSMExtras;
+    private String msgStarted;
+    private String  msgInProgress;
+    private String msgCanceled;
+    private String msgFailed;
+    private String msgPaused;
+    private String msgComplete;
+    private String argMusicArtist;
+    private String argMusicAlbum;
+    private String argArtistId;
+    private String argPlaylistId;
+    private String argAlbumId;
+    private String argMusicId;
 
     public DownloadWorker(@NonNull final Context context, @NonNull WorkerParameters params) {
         super(context, params);
@@ -190,7 +205,10 @@ public class DownloadWorker extends Worker implements MethodChannel.MethodCallHa
         debug = getInputData().getBoolean(ARG_DEBUG, false);
         argMusicArtist = getInputData().getString(ARG_MUSIC_ARTIST);
         argMusicAlbum = getInputData().getString(ARG_MUSIC_ALBUM);
-        argSMExtras = getInputData().getString(ARG_SM_EXTRAS);
+        argArtistId = getInputData().getString(ARG_ARTIST_ID);
+        argPlaylistId = getInputData().getString(ARG_PLAYLIST_ID);
+        argAlbumId = getInputData().getString(ARG_ALBUM_ID);
+        argMusicId = getInputData().getString(ARG_MUSIC_ID);
 
         Resources res = getApplicationContext().getResources();
         msgStarted = res.getString(R.string.flutter_downloader_notification_started);
@@ -202,7 +220,9 @@ public class DownloadWorker extends Worker implements MethodChannel.MethodCallHa
 
         log("DownloadWorker{url=" + url + ",filename=" + filename + ",savedDir=" + savedDir
                 + ",header=" + headers + ",isResume=" + isResume + ",argMusicArtist=" + argMusicArtist
-                + ",argMusicAlbum=" + argMusicAlbum + ",argSMExtras=" + argSMExtras);
+                + ",argMusicAlbum=" + argMusicAlbum + ",argArtistId=" + argArtistId +
+                ",argArtistId=" + argArtistId + ",argPlaylistId=" + argPlaylistId +
+                ",argAlbumId=" + argAlbumId + ",argMusicId=" + argMusicId);
 
         showNotification = getInputData().getBoolean(ARG_SHOW_NOTIFICATION, false);
         clickToOpenDownloadedFile =
@@ -644,20 +664,20 @@ public class DownloadWorker extends Worker implements MethodChannel.MethodCallHa
 
                         values.put(MediaStore.Audio.Media.ARTIST, argMusicArtist);
                         values.put(MediaStore.Audio.Media.ALBUM, argMusicAlbum);
-                        values.put(MediaStore.Audio.Media.BOOKMARK, argSMExtras);
 
                         try {
                             Mp3File mp3File = new Mp3File(filePath);
                             ID3v1Tag id3v1Tag = new ID3v1Tag();
-                            id3v1Tag.setComment(argSMExtras);
+                            id3v1Tag.setComment("Sua Música");
                             mp3File.setId3v1Tag(id3v1Tag);
+
 
                             ID3v24Tag id3v2Tag = new ID3v24Tag();
                             id3v2Tag.setAlbum(argMusicAlbum);
                             id3v2Tag.setAlbumArtist(argMusicArtist);
+                            id3v2Tag.setUrl(String.format("https://www.suamusica.com.br/perfil/%s?playlistId=%s&albumId=%s&musicId=%s", argArtistId, argPlaylistId, argAlbumId, argMusicId));
                             mp3File.setId3v2Tag(id3v2Tag);
 
-                            mp3File.setCustomTag(argSMExtras.getBytes());
                             String newFilename = filePath + ".tmp";
                             mp3File.save(newFilename);
 
