@@ -671,7 +671,6 @@ public class DownloadWorker extends Worker implements MethodChannel.MethodCallHa
                             id3v1Tag.setComment("Sua Música");
                             mp3File.setId3v1Tag(id3v1Tag);
 
-
                             ID3v24Tag id3v2Tag = new ID3v24Tag();
                             id3v2Tag.setAlbum(argMusicAlbum);
                             id3v2Tag.setAlbumArtist(argMusicArtist);
