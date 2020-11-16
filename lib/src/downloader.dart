@@ -80,17 +80,21 @@ class FlutterDownloader {
   ///
   /// an unique identifier of the new download task
   ///
-  static Future<String> enqueue(
-      {@required String url,
-      @required String savedDir,
-      String fileName,
-      Map<String, String> headers,
-      bool showNotification = true,
-      bool openFileFromNotification = true,
-      bool requiresStorageNotLow = true,
-      String albumName,
-      String artistName,
-      Map<String, String> smExtras}) async {
+  static Future<String> enqueue({
+    @required String url,
+    @required String savedDir,
+    String fileName,
+    Map<String, String> headers,
+    bool showNotification = true,
+    bool openFileFromNotification = true,
+    bool requiresStorageNotLow = true,
+    String albumName,
+    String artistName,
+    String artistId,
+    String playlistId,
+    String albumId,
+    String musicId,
+  }) async {
     assert(_initialized, 'FlutterDownloader.initialize() must be called first');
     assert(Directory(savedDir).existsSync());
     try {
@@ -104,7 +108,10 @@ class FlutterDownloader {
         'requires_storage_not_low': requiresStorageNotLow,
         'music_album': albumName,
         'music_artist': artistName,
-        'sm_extras': json.encode(smExtras),
+        "artist_id": artistId,
+        "playlist_id": playlistId,
+        "album_id": albumId,
+        "music_id": musicId,
       });
       return taskId;
     } on PlatformException catch (e) {
@@ -175,17 +182,20 @@ class FlutterDownloader {
       List<dynamic> result = await _channel.invokeMethod('loadTasks');
       return result
           .map((item) => new DownloadTask(
-              taskId: item['task_id'],
-              status: DownloadTaskStatus(item['status']),
-              progress: item['progress'],
-              url: item['url'],
-              filename: item['file_name'],
-              savedDir: item['saved_dir'],
-              timeCreated: item['time_created'],
-              albumName: item['music_album'],
-              artistName: item['music_artist'],
-              smExtras: item['sm_extras'],
-      ))
+                taskId: item['task_id'],
+                status: DownloadTaskStatus(item['status']),
+                progress: item['progress'],
+                url: item['url'],
+                filename: item['file_name'],
+                savedDir: item['saved_dir'],
+                timeCreated: item['time_created'],
+                albumName: item['music_album'],
+                artistName: item['music_artist'],
+                artistId: item["artist_id"],
+                playlistId: item["playlist_id"],
+                albumId: item["album_id"],
+                musicId: item["music_id"],
+              ))
           .toList();
     } on PlatformException catch (e) {
       print(e.message);
@@ -222,17 +232,20 @@ class FlutterDownloader {
           .invokeMethod('loadTasksWithRawQuery', {'query': query});
       return result
           .map((item) => new DownloadTask(
-              taskId: item['task_id'],
-              status: DownloadTaskStatus(item['status']),
-              progress: item['progress'],
-              url: item['url'],
-              filename: item['file_name'],
-              savedDir: item['saved_dir'],
-              timeCreated: item['time_created'],
-              albumName: item['music_album'],
-              artistName: item['music_artist'],
-              smExtras: item['sm_extras'],
-      ))
+                taskId: item['task_id'],
+                status: DownloadTaskStatus(item['status']),
+                progress: item['progress'],
+                url: item['url'],
+                filename: item['file_name'],
+                savedDir: item['saved_dir'],
+                timeCreated: item['time_created'],
+                albumName: item['music_album'],
+                artistName: item['music_artist'],
+                artistId: item["artist_id"],
+                playlistId: item["playlist_id"],
+                albumId: item["album_id"],
+                musicId: item["music_id"],
+              ))
           .toList();
     } on PlatformException catch (e) {
       print(e.message);

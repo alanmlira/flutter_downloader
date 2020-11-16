@@ -7,7 +7,7 @@ import android.database.sqlite.SQLiteOpenHelper;
 import vn.hunghd.flutterdownloader.TaskContract.TaskEntry;
 
 public class TaskDbHelper extends SQLiteOpenHelper {
-    public static final int DATABASE_VERSION = 3;
+    public static final int DATABASE_VERSION = 4;
     public static final String DATABASE_NAME = "download_tasks.db";
 
     private static TaskDbHelper instance = null;
@@ -29,7 +29,10 @@ public class TaskDbHelper extends SQLiteOpenHelper {
                     TaskEntry.COLUMN_NAME_TIME_CREATED + " INTEGER DEFAULT 0, " +
                     TaskEntry.COLUMN_NAME_ALBUM_NAME + " TEXT, " +
                     TaskEntry.COLUMN_NAME_ARTIST_NAME + " TEXT, " +
-                    TaskEntry.COLUMN_NAME_SM_EXTRAS + " TEXT" +
+                    TaskEntry.COLUMN_NAME_ARTIST_ID + " TEXT," +
+                    TaskEntry.COLUMN_NAME_PLAYLIST_ID + " TEXT," +
+                    TaskEntry.COLUMN_NAME_ALBUM_ID + " TEXT," +
+                    TaskEntry.COLUMN_NAME_MUSIC_ID + " TEXT" +
                     ")";
 
     private static final String SQL_DELETE_ENTRIES =
@@ -59,10 +62,13 @@ public class TaskDbHelper extends SQLiteOpenHelper {
 
     @Override
     public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
-        if (oldVersion < 3) {
+        if (oldVersion < 4) {
             db.execSQL("ALTER TABLE " + TaskEntry.TABLE_NAME + " ADD COLUMN " + TaskEntry.COLUMN_NAME_ALBUM_NAME + " TEXT;");
             db.execSQL("ALTER TABLE " + TaskEntry.TABLE_NAME + " ADD COLUMN " + TaskEntry.COLUMN_NAME_ARTIST_NAME + " TEXT;");
-            db.execSQL("ALTER TABLE " + TaskEntry.TABLE_NAME + " ADD COLUMN " + TaskEntry.COLUMN_NAME_SM_EXTRAS + " TEXT;");
+            db.execSQL("ALTER TABLE " + TaskEntry.TABLE_NAME + " ADD COLUMN " + TaskEntry.COLUMN_NAME_ARTIST_ID + " TEXT;");
+            db.execSQL("ALTER TABLE " + TaskEntry.TABLE_NAME + " ADD COLUMN " + TaskEntry.COLUMN_NAME_PLAYLIST_ID + " TEXT;");
+            db.execSQL("ALTER TABLE " + TaskEntry.TABLE_NAME + " ADD COLUMN " + TaskEntry.COLUMN_NAME_ALBUM_ID + " TEXT;");
+            db.execSQL("ALTER TABLE " + TaskEntry.TABLE_NAME + " ADD COLUMN " + TaskEntry.COLUMN_NAME_MUSIC_ID + " TEXT;");
         } else {
             // default migration. should only be a fallback solution
             db.execSQL(SQL_DELETE_ENTRIES);
