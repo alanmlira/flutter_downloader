@@ -58,17 +58,23 @@ public class TaskDbHelper extends SQLiteOpenHelper {
     @Override
     public void onCreate(SQLiteDatabase db) {
         db.execSQL(SQL_CREATE_ENTRIES);
+
+    }
+    public void tryStatement(SQLiteDatabase db, String query) {
+        try {
+            db.execSQL(query);
+        } catch (Exception e) {}    
     }
 
     @Override
     public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
         if (oldVersion < 4) {
-            db.execSQL("ALTER TABLE " + TaskEntry.TABLE_NAME + " ADD COLUMN " + TaskEntry.COLUMN_NAME_ALBUM_NAME + " TEXT;");
-            db.execSQL("ALTER TABLE " + TaskEntry.TABLE_NAME + " ADD COLUMN " + TaskEntry.COLUMN_NAME_ARTIST_NAME + " TEXT;");
-            db.execSQL("ALTER TABLE " + TaskEntry.TABLE_NAME + " ADD COLUMN " + TaskEntry.COLUMN_NAME_ARTIST_ID + " TEXT;");
-            db.execSQL("ALTER TABLE " + TaskEntry.TABLE_NAME + " ADD COLUMN " + TaskEntry.COLUMN_NAME_PLAYLIST_ID + " TEXT;");
-            db.execSQL("ALTER TABLE " + TaskEntry.TABLE_NAME + " ADD COLUMN " + TaskEntry.COLUMN_NAME_ALBUM_ID + " TEXT;");
-            db.execSQL("ALTER TABLE " + TaskEntry.TABLE_NAME + " ADD COLUMN " + TaskEntry.COLUMN_NAME_MUSIC_ID + " TEXT;");
+            tryStatement(db,"ALTER TABLE " + TaskEntry.TABLE_NAME + " ADD COLUMN " + TaskEntry.COLUMN_NAME_ALBUM_NAME + " TEXT;");
+            tryStatement(db,"ALTER TABLE " + TaskEntry.TABLE_NAME + " ADD COLUMN " + TaskEntry.COLUMN_NAME_ARTIST_NAME + " TEXT;");
+            tryStatement(db,"ALTER TABLE " + TaskEntry.TABLE_NAME + " ADD COLUMN " + TaskEntry.COLUMN_NAME_ARTIST_ID + " TEXT;");
+            tryStatement(db,"ALTER TABLE " + TaskEntry.TABLE_NAME + " ADD COLUMN " + TaskEntry.COLUMN_NAME_PLAYLIST_ID + " TEXT;");
+            tryStatement(db,"ALTER TABLE " + TaskEntry.TABLE_NAME + " ADD COLUMN " + TaskEntry.COLUMN_NAME_ALBUM_ID + " TEXT;");
+            tryStatement(db,"ALTER TABLE " + TaskEntry.TABLE_NAME + " ADD COLUMN " + TaskEntry.COLUMN_NAME_MUSIC_ID + " TEXT;");
         } else {
             // default migration. should only be a fallback solution
             db.execSQL(SQL_DELETE_ENTRIES);
