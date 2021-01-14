@@ -359,6 +359,9 @@ public class DownloadWorker extends Worker implements MethodChannel.MethodCallHa
                     || (isResume && responseCode == HttpURLConnection.HTTP_PARTIAL))
                     && !isStopped()) {
                 String contentType = httpConn.getContentType();
+                if(contentType.contains("multipart/")){
+                    contentType = "application/octet-stream";
+                }
                 int contentLength = httpConn.getContentLength();
                 log("Content-Type = " + contentType);
                 log("Content-Length = " + contentLength);
