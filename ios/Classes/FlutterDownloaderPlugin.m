@@ -551,7 +551,7 @@ static BOOL debug = YES;
 }
 - (NSDictionary*) taskDictFromRecordArray:(NSArray*)record
 {
-    NSString *taskId = [self stringAtIndex:record withArrColumnNames:_dbManager.arrColumnNames withFieldName:@"taskId"];
+    NSString *taskId = [self stringAtIndex:record withArrColumnNames:_dbManager.arrColumnNames withFieldName:@"task_id"];
     int status = [self intAtIndex:record withArrColumnNames:_dbManager.arrColumnNames withFieldName:@"status"];
     int progress = [self intAtIndex:record withArrColumnNames:_dbManager.arrColumnNames withFieldName:@"progress"];
     
