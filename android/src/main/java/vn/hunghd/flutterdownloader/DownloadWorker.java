@@ -735,8 +735,12 @@ public class DownloadWorker extends Worker implements MethodChannel.MethodCallHa
                             ID3v1Tag id3v1Tag = new ID3v1Tag();
                             id3v1Tag.setComment("Sua Música");
                             mp3File.setId3v1Tag(id3v1Tag);
-
-                            ID3v24Tag id3v2Tag = new ID3v24Tag();
+                            ID3v24Tag id3v2Tag;
+                            if (mp3File.hasId3v2Tag()) {
+                                id3v2Tag = (ID3v24Tag) mp3File.getId3v2Tag();
+                            } else{
+                                id3v2Tag = new ID3v24Tag();
+                            }
                             id3v2Tag.setAlbum(argMusicAlbum);
                             id3v2Tag.setAlbumArtist(argMusicArtist);
                             id3v2Tag.setUrl(String.format("https://www.suamusica.com.br/perfil/%s?playlistId=%s&albumId=%s&musicId=%s", argArtistId, argPlaylistId, argAlbumId, argMusicId));
