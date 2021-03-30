@@ -8,12 +8,6 @@ class DownloadTaskStatus {
 
   int get value => _value;
 
-  get hashCode => _value;
-
-  operator ==(status) => status._value == this._value;
-
-  toString() => 'DownloadTaskStatus($_value)';
-
   static DownloadTaskStatus from(int value) => DownloadTaskStatus(value);
 
   static const undefined = const DownloadTaskStatus(0);
@@ -23,6 +17,19 @@ class DownloadTaskStatus {
   static const failed = const DownloadTaskStatus(4);
   static const canceled = const DownloadTaskStatus(5);
   static const paused = const DownloadTaskStatus(6);
+
+  @override
+  bool operator ==(Object o) {
+    if (identical(this, o)) return true;
+
+    return o is DownloadTaskStatus && o._value == _value;
+  }
+
+  @override
+  int get hashCode => _value.hashCode;
+
+  @override
+  String toString() => 'DownloadTaskStatus($_value)';
 }
 
 ///
@@ -35,9 +42,9 @@ class DownloadTaskStatus {
 ///
 class DownloadItem {
   DownloadItem({
-    this.url,
-    this.savedDir,
-    this.fileName,
+    required this.url,
+    required this.savedDir,
+    required this.fileName,
     this.albumName,
     this.artistName,
     this.artistId,
@@ -49,12 +56,12 @@ class DownloadItem {
   final String url;
   final String savedDir;
   final String fileName;
-  final String albumName;
-  final String artistName;
-  final String artistId;
-  final String playlistId;
-  final String albumId;
-  final String musicId;
+  final String? albumName;
+  final String? artistName;
+  final String? artistId;
+  final String? playlistId;
+  final String? albumId;
+  final String? musicId;
 
   @override
   String toString() =>
@@ -83,6 +90,7 @@ class DownloadItem {
 /// * [url] the download link
 /// * [filename] the local file name of a downloaded file
 /// * [savedDir] the absolute path of the directory where the downloaded file is saved
+/// * [timeCreated] milliseconds since the Unix epoch (midnight, January 1, 1970 UTC)
 ///
 class DownloadTask {
   final String taskId;
@@ -92,21 +100,21 @@ class DownloadTask {
   final String filename;
   final String savedDir;
   final int timeCreated;
-  final String albumName;
-  final String artistName;
-  final String artistId;
-  final String playlistId;
-  final String albumId;
-  final String musicId;
+  final String? albumName;
+  final String? artistName;
+  final String? artistId;
+  final String? playlistId;
+  final String? albumId;
+  final String? musicId;
 
   DownloadTask({
-    this.taskId,
-    this.status,
-    this.progress,
-    this.url,
-    this.filename,
-    this.savedDir,
-    this.timeCreated,
+    required this.taskId,
+    required this.status,
+    required this.progress,
+    required this.url,
+    required this.filename,
+    required this.savedDir,
+    required this.timeCreated,
     this.albumName,
     this.artistName,
     this.artistId,
