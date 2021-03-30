@@ -67,7 +67,7 @@ class DownloadItem {
   String toString() =>
       "DownloadItem(url: $url, savedDir: $savedDir, fileName: $fileName, albumName: $albumName, artistName: $artistName, albumName: $albumName)";
 
-  Map<String, String> toMap() => {
+  Map<String, String?> toMap() => {
         "url": url,
         "saved_dir": savedDir,
         "file_name": fileName,
