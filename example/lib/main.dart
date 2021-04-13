@@ -166,10 +166,15 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 
   static void downloadCallback(
-      String id, DownloadTaskStatus status, int progress) {
+    String id,
+    DownloadTaskStatus status,
+    int progress,
+    String obs,
+  ) {
     if (debug) {
       print(
-          'Background Isolate Callback: task ($id) is in status ($status) and process ($progress)');
+        'Background Isolate Callback: task ($id) is in status ($status) and process ($progress) and obs ($obs)',
+      );
     }
     final SendPort send =
         IsolateNameServer.lookupPortByName('downloader_send_port')!;
@@ -282,6 +287,7 @@ class _MyHomePageState extends State<MyHomePage> {
         openFileFromNotification: true);
   }
 
+  // ignore: unused_element
   void _cancelDownload(_TaskInfo task) async {
     await FlutterDownloader.cancel(taskId: task.taskId!);
   }
