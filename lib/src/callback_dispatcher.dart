@@ -21,11 +21,6 @@ void callbackDispatcher() {
       print('Fatal: could not find callback');
       exit(-1);
     }
-
-    if (callback == null) {
-      print('Fatal: could not find callback');
-      exit(-1);
-    }
     final String id = args[1];
     final int status = args[2];
     final int progress = args[3];
