@@ -13,9 +13,14 @@ void callbackDispatcher() {
 
   backgroundChannel.setMethodCallHandler((MethodCall call) async {
     final List<dynamic> args = call.arguments;
-
     final handle = CallbackHandle.fromRawHandle(args[0]);
-    final Function? callback = PluginUtilities.getCallbackFromHandle(handle);
+    final Function? callback =
+        PluginUtilities.getCallbackFromHandle(handle);
+
+    if (callback == null) {
+      print('Fatal: could not find callback');
+      exit(-1);
+    }
 
     if (callback == null) {
       print('Fatal: could not find callback');
