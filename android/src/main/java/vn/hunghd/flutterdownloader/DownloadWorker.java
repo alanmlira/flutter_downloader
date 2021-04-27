@@ -111,7 +111,7 @@ public class DownloadWorker extends Worker implements MethodChannel.MethodCallHa
     private int lastProgress = 0;
     private int primaryId;
     private String msgStarted;
-    private String  msgInProgress;
+    private String msgInProgress;
     private String msgCanceled;
     private String msgFailed;
     private String msgPaused;
@@ -248,7 +248,7 @@ public class DownloadWorker extends Worker implements MethodChannel.MethodCallHa
         File partialFile = new File(saveFilePath);
         if (partialFile.exists()) {
             isResume = true;
-            log("exists file for "+ filename + "automatic resuming...");
+            log("exists file for " + filename + "automatic resuming...");
         }
 
         try {
@@ -274,7 +274,7 @@ public class DownloadWorker extends Worker implements MethodChannel.MethodCallHa
             log("Headers = " + headers);
             try {
                 JSONObject json = new JSONObject(headers);
-                for (Iterator<String> it = json.keys(); it.hasNext();) {
+                for (Iterator<String> it = json.keys(); it.hasNext(); ) {
                     String key = it.next();
                     conn.setRequestProperty(key, json.getString(key));
                 }
@@ -286,7 +286,7 @@ public class DownloadWorker extends Worker implements MethodChannel.MethodCallHa
     }
 
     private long setupPartialDownloadedDataHeader(HttpURLConnection conn, String filename,
-            String savedDir) {
+                                                  String savedDir) {
         String saveFilePath = savedDir + File.separator + filename;
         File partialFile = new File(saveFilePath);
         long downloadedBytes = partialFile.length();
@@ -298,7 +298,7 @@ public class DownloadWorker extends Worker implements MethodChannel.MethodCallHa
     }
 
     private void downloadFile(Context context, String fileURL, String savedDir, String filename,
-            String headers, boolean isResume) throws IOException {
+                              String headers, boolean isResume) throws IOException {
         String url = fileURL;
         URL resourceUrl, base, next;
         Map<String, Integer> visited;
@@ -370,8 +370,9 @@ public class DownloadWorker extends Worker implements MethodChannel.MethodCallHa
                     && !isStopped()) {
                 String contentType = httpConn.getContentType();
 
-                long contentLength = httpConn.getContentLengthLong();
-                if(contentType.contains("multipart/")){
+                long contentLength = android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N ? httpConn.getContentLengthLong() : httpConn.getContentLength();
+
+                if (contentType.contains("multipart/")) {
                     contentType = "application/octet-stream";
                 }
                 log("Content-Type = " + contentType);
@@ -566,7 +567,7 @@ public class DownloadWorker extends Worker implements MethodChannel.MethodCallHa
     }
 
     private void updateNotification(Context context, String title, int status, int progress,
-            PendingIntent intent, boolean finalize, String errorType) {
+                                    PendingIntent intent, boolean finalize, String errorType) {
         sendUpdateProcessEvent(status, progress, errorType);
 
         // Show the notification
@@ -777,7 +778,7 @@ public class DownloadWorker extends Worker implements MethodChannel.MethodCallHa
                             ID3v24Tag id3v2Tag;
                             if (mp3File.hasId3v2Tag()) {
                                 id3v2Tag = (ID3v24Tag) mp3File.getId3v2Tag();
-                            } else{
+                            } else {
                                 id3v2Tag = new ID3v24Tag();
                             }
                             id3v2Tag.setAlbum(argMusicAlbum);
