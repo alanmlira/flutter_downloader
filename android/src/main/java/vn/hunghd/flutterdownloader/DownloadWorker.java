@@ -247,7 +247,7 @@ public class DownloadWorker extends Worker implements MethodChannel.MethodCallHa
         String saveFilePath = savedDir + File.separator + filename;
         File partialFile = new File(saveFilePath);
         if (partialFile.exists()) {
-            isResume = true;
+            // isResume = true;
             log("exists file for " + filename + "automatic resuming...");
         }
 
