@@ -245,12 +245,12 @@ public class DownloadWorker extends Worker implements MethodChannel.MethodCallHa
 
         //automatic resume for partial files. (if the workmanager unexpectedly quited in background)
         String saveFilePath = savedDir + File.separator + filename;
-        File partialFile = new File(saveFilePath);
-        if (partialFile.exists()) {
-            // isResume = true;
-            log("exists file for " + filename + "automatic resuming...");
-        }
-
+        // File partialFile = new File(saveFilePath);
+        // if (partialFile.exists()) {
+        //     log("exists file for " + filename + "automatic resuming...");
+        // }
+        //Disabling resume because our server does not accepts it.
+        isResume = false;
         try {
             downloadFile(context, url, savedDir, filename, headers, isResume);
             cleanUp();
