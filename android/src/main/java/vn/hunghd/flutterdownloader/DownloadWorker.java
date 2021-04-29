@@ -804,18 +804,22 @@ public class DownloadWorker extends Worker implements MethodChannel.MethodCallHa
 
                         values.put(IS_PENDING, 1);
                         log("insert " + values + " to MediaStore");
-                        ContentResolver contentResolver =
-                                getApplicationContext().getContentResolver();
-                        Uri uriSavedMusic = contentResolver
-                                .insert(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, values);
-                        if (uriSavedMusic != null) {
-                            values.clear();
-                            values.put(IS_PENDING, 0);
-                            contentResolver.update(uriSavedMusic, values, null, null);
-                        }
+                        try {
+                            ContentResolver contentResolver =
+                                    getApplicationContext().getContentResolver();
+                            Uri uriSavedMusic = contentResolver
+                                    .insert(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, values);
+                            if (uriSavedMusic != null) {
+                                values.clear();
+                                values.put(IS_PENDING, 0);
+                                contentResolver.update(uriSavedMusic, values, null, null);
+                            }
 
-                        if (android.os.Build.VERSION.SDK_INT < 29)
-                            callScanFileIntent(file);
+                            if (android.os.Build.VERSION.SDK_INT < 29)
+                                callScanFileIntent(file);
+                        } catch (Exception e) {
+                            Log.e(TAG, "Failed to set ID3v1 tags", e);
+                        }
                     } else {
                         callScanFileIntent(file);
                     }
