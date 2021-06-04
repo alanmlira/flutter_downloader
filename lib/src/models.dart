@@ -97,7 +97,7 @@ class DownloadTask {
   final DownloadTaskStatus status;
   final int progress;
   final String url;
-  final String filename;
+  final String? filename;
   final String savedDir;
   final int timeCreated;
   final String? albumName;

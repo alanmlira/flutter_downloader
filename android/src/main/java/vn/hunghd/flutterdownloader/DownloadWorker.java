@@ -369,7 +369,6 @@ public class DownloadWorker extends Worker implements MethodChannel.MethodCallHa
                     || (isResume && responseCode == HttpURLConnection.HTTP_PARTIAL))
                     && !isStopped()) {
                 String contentType = httpConn.getContentType();
-
                 long contentLength = android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N ? httpConn.getContentLengthLong() : httpConn.getContentLength();
 
                 if (contentType.contains("multipart/")) {

@@ -151,12 +151,10 @@ class _MyHomePageState extends State<MyHomePage> {
 
       if (_tasks != null && _tasks!.isNotEmpty) {
         final task = _tasks!.firstWhere((task) => task.taskId == id);
-        if (task != null) {
-          setState(() {
-            task.status = status;
-            task.progress = progress;
-          });
-        }
+        setState(() {
+          task.status = status;
+          task.progress = progress;
+        });
       }
     });
   }
@@ -214,7 +212,7 @@ class _MyHomePageState extends State<MyHomePage> {
                           }
                         });
                       },
-                      onAtionClick: (task) {
+                      onActionClick: (task) {
                         if (task.status == DownloadTaskStatus.undefined) {
                           _requestDownload(task);
                         } else if (task.status == DownloadTaskStatus.running) {
@@ -260,11 +258,7 @@ class _MyHomePageState extends State<MyHomePage> {
               ),
               FlatButton(
                   onPressed: () {
-                    _checkPermission().then((hasGranted) {
-                      setState(() {
-                        _permissionReady = hasGranted;
-                      });
-                    });
+                    _retryRequestPermission();
                   },
                   child: Text(
                     'Retry',
@@ -277,6 +271,18 @@ class _MyHomePageState extends State<MyHomePage> {
           ),
         ),
       );
+
+  Future<void> _retryRequestPermission() async {
+    final hasGranted = await _checkPermission();
+
+    if (hasGranted) {
+      await _prepareSaveDir();
+    }
+
+    setState(() {
+      _permissionReady = hasGranted;
+    });
+  }
 
   void _requestDownload(_TaskInfo task) async {
     task.taskId = await FlutterDownloader.enqueue(
@@ -372,7 +378,7 @@ class _MyHomePageState extends State<MyHomePage> {
       count++;
     }
 
-    tasks?.forEach((task) {
+    tasks!.forEach((task) {
       for (_TaskInfo info in _tasks!) {
         if (info.link == task.url) {
           info.taskId = task.taskId;
@@ -384,12 +390,8 @@ class _MyHomePageState extends State<MyHomePage> {
 
     _permissionReady = await _checkPermission();
 
-    _localPath = (await _findLocalPath()) + Platform.pathSeparator + 'Download';
-
-    final savedDir = Directory(_localPath);
-    bool hasExisted = await savedDir.exists();
-    if (!hasExisted) {
-      savedDir.create();
+    if (_permissionReady) {
+      await _prepareSaveDir();
     }
 
     setState(() {
@@ -397,20 +399,31 @@ class _MyHomePageState extends State<MyHomePage> {
     });
   }
 
-  Future<String> _findLocalPath() async {
+  Future<void> _prepareSaveDir() async {
+    _localPath =
+        (await _findLocalPath())! + Platform.pathSeparator + 'Download';
+
+    final savedDir = Directory(_localPath);
+    bool hasExisted = await savedDir.exists();
+    if (!hasExisted) {
+      savedDir.create();
+    }
+  }
+
+  Future<String?> _findLocalPath() async {
     final directory = widget.platform == TargetPlatform.android
-        ? await (getExternalStorageDirectory() as FutureOr<Directory>)
+        ? await getExternalStorageDirectory()
         : await getApplicationDocumentsDirectory();
-    return directory.path;
+    return directory?.path;
   }
 }
 
 class DownloadItem extends StatelessWidget {
   final _ItemHolder? data;
   final Function(_TaskInfo?)? onItemClick;
-  final Function(_TaskInfo)? onAtionClick;
+  final Function(_TaskInfo)? onActionClick;
 
-  DownloadItem({this.data, this.onItemClick, this.onAtionClick});
+  DownloadItem({this.data, this.onItemClick, this.onActionClick});
 
   @override
   Widget build(BuildContext context) {
@@ -456,7 +469,7 @@ class DownloadItem extends StatelessWidget {
                     ),
                   )
                 : Container()
-          ].where((child) => child != null).toList(),
+          ].toList(),
         ),
       ),
     );
@@ -466,7 +479,7 @@ class DownloadItem extends StatelessWidget {
     if (task.status == DownloadTaskStatus.undefined) {
       return RawMaterialButton(
         onPressed: () {
-          onAtionClick!(task);
+          onActionClick!(task);
         },
         child: Icon(Icons.file_download),
         shape: CircleBorder(),
@@ -475,7 +488,7 @@ class DownloadItem extends StatelessWidget {
     } else if (task.status == DownloadTaskStatus.running) {
       return RawMaterialButton(
         onPressed: () {
-          onAtionClick!(task);
+          onActionClick!(task);
         },
         child: Icon(
           Icons.pause,
@@ -487,7 +500,7 @@ class DownloadItem extends StatelessWidget {
     } else if (task.status == DownloadTaskStatus.paused) {
       return RawMaterialButton(
         onPressed: () {
-          onAtionClick!(task);
+          onActionClick!(task);
         },
         child: Icon(
           Icons.play_arrow,
@@ -507,7 +520,7 @@ class DownloadItem extends StatelessWidget {
           ),
           RawMaterialButton(
             onPressed: () {
-              onAtionClick!(task);
+              onActionClick!(task);
             },
             child: Icon(
               Icons.delete_forever,
@@ -528,7 +541,7 @@ class DownloadItem extends StatelessWidget {
           Text('Failed', style: TextStyle(color: Colors.red)),
           RawMaterialButton(
             onPressed: () {
-              onAtionClick!(task);
+              onActionClick!(task);
             },
             child: Icon(
               Icons.refresh,
