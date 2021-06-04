@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 import 'dart:ui';
+import 'dart:convert';
 
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
@@ -15,9 +16,26 @@ import 'models.dart';
 /// * `status`: current status of a download task
 /// * `progress`: current progress value of a download task, the value is in
 /// range of 0 and 100
+/// * `obs`: any String indicating any more info needed
 ///
 typedef void DownloadCallback(
-    String id, DownloadTaskStatus status, int progress);
+  String id,
+  DownloadTaskStatus status,
+  int progress,
+  String obs,
+);
+
+StringBuffer toHeaderBuilder(Map<String, String>? data) {
+  final headerBuilder = StringBuffer();
+  if (data != null) {
+    headerBuilder.write('{');
+    headerBuilder.writeAll(
+        data.entries.map((entry) => '\"${entry.key}\": \"${entry.value}\"'),
+        ',');
+    headerBuilder.write('}');
+  }
+  return headerBuilder;
+}
 
 ///
 /// A convenient class wraps all api functions of **FlutterDownloader** plugin
@@ -62,37 +80,89 @@ class FlutterDownloader {
   ///
   /// an unique identifier of the new download task
   ///
-  static Future<String?> enqueue(
-      {required String url,
-      required String savedDir,
-      String? fileName,
-      Map<String, String>? headers,
-      bool showNotification = true,
-      bool openFileFromNotification = true,
-      bool requiresStorageNotLow = true}) async {
+  static Future<String?> enqueue({
+    required String url,
+    required String savedDir,
+    String? fileName,
+    Map<String, String>? headers,
+    bool showNotification = true,
+    bool openFileFromNotification = true,
+    bool requiresStorageNotLow = true,
+    String? albumName,
+    String? artistName,
+    String? artistId,
+    String? playlistId,
+    String? albumId,
+    String? musicId,
+  }) async {
     assert(_initialized, 'FlutterDownloader.initialize() must be called first');
     assert(Directory(savedDir).existsSync());
-
-    StringBuffer headerBuilder = StringBuffer();
-    if (headers != null) {
-      headerBuilder.write('{');
-      headerBuilder.writeAll(
-          headers.entries
-              .map((entry) => '\"${entry.key}\": \"${entry.value}\"'),
-          ',');
-      headerBuilder.write('}');
-    }
     try {
       String? taskId = await _channel.invokeMethod('enqueue', {
         'url': url,
         'saved_dir': savedDir,
         'file_name': fileName,
-        'headers': headerBuilder.toString(),
+        'headers': toHeaderBuilder(headers).toString(),
+        'show_notification': showNotification,
+        'open_file_from_notification': openFileFromNotification,
+        'requires_storage_not_low': requiresStorageNotLow,
+        'music_album': albumName,
+        'music_artist': artistName,
+        "artist_id": artistId,
+        "playlist_id": playlistId,
+        "album_id": albumId,
+        "music_id": musicId,
+      });
+      return taskId;
+    } on PlatformException catch (e) {
+      print('Download task is failed with reason(${e.message})');
+      return null;
+    }
+  }
+
+  ///
+  /// Create a bunch of new download tasks
+  ///
+  /// **parameters:**
+  ///
+  /// * `downloads`: download items containing link, absolute path of the directory
+  /// where downloaded file is saved, name of downloaded file. If this parameter
+  /// is not set, the plugin will try to extract a file name from HTTP headers
+  /// response or `url`
+  /// * `headers`: HTTP headers
+  /// * `showNotification`: sets `true` to show a notification displaying the
+  /// download progress (only Android), otherwise, `false` value will disable
+  /// this feature. The default value is `true`
+  /// * `openFileFromNotification`: if `showNotification` is `true`, this flag
+  /// controls the way to response to user's click action on the notification
+  /// (only Android). If it is `true`, user can click on the notification to
+  /// open and preview the downloaded file, otherwise, nothing happens. The
+  /// default value is `true`
+  ///
+  /// **return:**
+  ///
+  /// an unique identifier of the new download task
+  ///
+  static Future<List<String>?> enqueueItems({
+    required List<DownloadItem> downloads,
+    Map<String, String>? headers,
+    bool showNotification = true,
+    bool openFileFromNotification = true,
+    bool requiresStorageNotLow = true,
+  }) async {
+    assert(_initialized, 'FlutterDownloader.initialize() must be called first');
+    try {
+      List<dynamic> result = await _channel.invokeMethod('enqueueItems', {
+        'downloads': downloads.map((item) => item.toMap()).toList(),
+        'headers': toHeaderBuilder(headers).toString(),
         'show_notification': showNotification,
         'open_file_from_notification': openFileFromNotification,
         'requires_storage_not_low': requiresStorageNotLow,
       });
-      return taskId;
+      return result.map((taskId) {
+        print('Download task is enqueued with id($taskId)');
+        return taskId as String;
+      }).toList();
     } on PlatformException catch (e) {
       print('Download task is failed with reason(${e.message})');
       return null;
@@ -113,13 +183,20 @@ class FlutterDownloader {
       List<dynamic> result = await _channel.invokeMethod('loadTasks');
       return result
           .map((item) => new DownloadTask(
-              taskId: item['task_id'],
-              status: DownloadTaskStatus(item['status']),
-              progress: item['progress'],
-              url: item['url'],
-              filename: item['file_name'],
-              savedDir: item['saved_dir'],
-              timeCreated: item['time_created']))
+                taskId: item['task_id'],
+                status: DownloadTaskStatus(item['status']),
+                progress: item['progress'],
+                url: item['url'],
+                filename: item['file_name'],
+                savedDir: item['saved_dir'],
+                timeCreated: item['time_created'],
+                albumName: item['music_album'],
+                artistName: item['music_artist'],
+                artistId: item["artist_id"],
+                playlistId: item["playlist_id"],
+                albumId: item["album_id"],
+                musicId: item["music_id"],
+              ))
           .toList();
     } on PlatformException catch (e) {
       print(e.message);
@@ -156,13 +233,20 @@ class FlutterDownloader {
           .invokeMethod('loadTasksWithRawQuery', {'query': query});
       return result
           .map((item) => new DownloadTask(
-              taskId: item['task_id'],
-              status: DownloadTaskStatus(item['status']),
-              progress: item['progress'],
-              url: item['url'],
-              filename: item['file_name'],
-              savedDir: item['saved_dir'],
-              timeCreated: item['time_created']))
+                taskId: item['task_id'],
+                status: DownloadTaskStatus(item['status']),
+                progress: item['progress'],
+                url: item['url'],
+                filename: item['file_name'],
+                savedDir: item['saved_dir'],
+                timeCreated: item['time_created'],
+                albumName: item['music_album'],
+                artistName: item['music_artist'],
+                artistId: item["artist_id"],
+                playlistId: item["playlist_id"],
+                albumId: item["album_id"],
+                musicId: item["music_id"],
+              ))
           .toList();
     } on PlatformException catch (e) {
       print(e.message);
@@ -235,6 +319,7 @@ class FlutterDownloader {
   static Future<String?> resume({
     required String taskId,
     bool requiresStorageNotLow = true,
+    Map<String, String>? headers,
   }) async {
     assert(_initialized, 'FlutterDownloader.initialize() must be called first');
 
@@ -242,6 +327,7 @@ class FlutterDownloader {
       return await _channel.invokeMethod('resume', {
         'task_id': taskId,
         'requires_storage_not_low': requiresStorageNotLow,
+        'headers': toHeaderBuilder(headers).toString(),
       });
     } on PlatformException catch (e) {
       print(e.message);
@@ -264,6 +350,7 @@ class FlutterDownloader {
   static Future<String?> retry({
     required String taskId,
     bool requiresStorageNotLow = true,
+    Map<String, String>? headers,
   }) async {
     assert(_initialized, 'FlutterDownloader.initialize() must be called first');
 
@@ -271,6 +358,7 @@ class FlutterDownloader {
       return await _channel.invokeMethod('retry', {
         'task_id': taskId,
         'requires_storage_not_low': requiresStorageNotLow,
+        'headers': toHeaderBuilder(headers).toString(),
       });
     } on PlatformException catch (e) {
       print(e.message);
@@ -386,10 +474,10 @@ class FlutterDownloader {
   static registerCallback(DownloadCallback callback) {
     assert(_initialized, 'FlutterDownloader.initialize() must be called first');
 
-    final callbackHandle = PluginUtilities.getCallbackHandle(callback)!;
+    final callbackHandle = PluginUtilities.getCallbackHandle(callback);
     assert(callbackHandle != null,
         'callback must be a top-level or a static function');
     _channel.invokeMethod(
-        'registerCallback', <dynamic>[callbackHandle.toRawHandle()]);
+        'registerCallback', <dynamic>[callbackHandle?.toRawHandle()]);
   }
 }

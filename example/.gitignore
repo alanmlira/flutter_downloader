@@ -7,3 +7,9 @@
 build/
 
 .flutter-plugins
+.flutter-plugins-dependencies
+
+/.classpath
+/.project
+/.settings
+/android/app/.classpath
