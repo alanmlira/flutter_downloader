@@ -16,13 +16,17 @@ import androidx.core.app.NotificationManagerCompat;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Arrays;
 import java.util.Map;
+import java.util.Queue;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
 import android.net.Uri;
+import android.util.Log;
+
 import androidx.work.BackoffPolicy;
 import androidx.work.Constraints;
 import androidx.work.Data;
@@ -46,10 +50,13 @@ public class FlutterDownloaderPlugin implements MethodCallHandler, FlutterPlugin
     public static final String CALLBACK_DISPATCHER_HANDLE_KEY = "callback_dispatcher_handle_key";
 
     private static FlutterDownloaderPlugin instance;
+    private static Queue<WorkRequest> queue = new LinkedList<>();
+
     private MethodChannel flutterChannel;
     private TaskDbHelper dbHelper;
     private TaskDao taskDao;
     private Context context;
+    private boolean nothingOnWorker = true;
     private long callbackHandle;
     private int debugMode;
     private final Object initializationLock = new Object();
@@ -103,7 +110,10 @@ public class FlutterDownloaderPlugin implements MethodCallHandler, FlutterPlugin
             open(call, result);
         } else if (call.method.equals("remove")) {
             remove(call, result);
-        } else {
+
+    } else if (call.method.equals("doQueue")) {
+            doQueue(call, result);
+    }else {
             result.notImplemented();
         }
     }
@@ -122,6 +132,31 @@ public class FlutterDownloaderPlugin implements MethodCallHandler, FlutterPlugin
         }
     }
 
+    private void doQueue(MethodCall call, MethodChannel.Result result) {
+        Log.d("TESTE","doQueue CALLED ");
+
+        if(!queue.isEmpty()){
+            Log.d("TESTE","doQueue NOT EMPTY ");
+            WorkManager.getInstance(context).enqueue(queue.poll());
+        } else {
+            Log.d("TESTE","doQueue EMPTY ");
+            nothingOnWorker = true;
+        }
+    }
+    private void _addToQueue(WorkRequest e){
+        Log.d("TESTE","_addToQueue ismepty: " + queue.isEmpty() + " nothingOnWorker =" + nothingOnWorker);
+
+        if(queue.isEmpty() && nothingOnWorker){
+            Log.d("TESTE","_addToQueue Start");
+
+            WorkManager.getInstance(context).enqueue(e);
+            nothingOnWorker = false;
+        } else {
+            Log.d("TESTE","_addToQueue ");
+            queue.add(e);
+        }
+    }
+
     private WorkRequest buildRequest(String url, String savedDir, String filename, String headers,
                                      boolean showNotification, boolean openFileFromNotification,
                                      boolean isResume, boolean requiresStorageNotLow, String albumName,
@@ -129,7 +164,8 @@ public class FlutterDownloaderPlugin implements MethodCallHandler, FlutterPlugin
         WorkRequest request = new OneTimeWorkRequest.Builder(DownloadWorker.class)
                 .setConstraints(new Constraints.Builder().setRequiresStorageNotLow(requiresStorageNotLow)
                         .setRequiredNetworkType(NetworkType.CONNECTED).build())
-                .addTag(TAG).setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 5, TimeUnit.SECONDS)
+                .addTag(TAG)
+                .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 10, TimeUnit.SECONDS)
                 .setInputData(new Data.Builder().putString(DownloadWorker.ARG_URL, url)
                         .putString(DownloadWorker.ARG_SAVED_DIR, savedDir)
                         .putString(DownloadWorker.ARG_FILE_NAME, filename)
@@ -151,7 +187,7 @@ public class FlutterDownloaderPlugin implements MethodCallHandler, FlutterPlugin
         return request;
     }
 
-    private void sendUpdateProgress(String id, int status, int progress,String obs) {
+    private void sendUpdateProgress(String id, int status, int progress, String obs) {
         Map<String, Object> args = new HashMap<>();
         args.put("task_id", id);
         args.put("status", status);
@@ -193,10 +229,11 @@ public class FlutterDownloaderPlugin implements MethodCallHandler, FlutterPlugin
         boolean requiresStorageNotLow = call.argument("requires_storage_not_low");
         WorkRequest request = buildRequest(url, savedDir, filename, headers, showNotification, openFileFromNotification,
                 false, requiresStorageNotLow, albumName, artistName, artistId, playlistId, albumId, musicId);
-        WorkManager.getInstance(context).enqueue(request);
+        _addToQueue(request);
+        //WorkManager.getInstance(context).enqueue(request);
         String taskId = request.getId().toString();
         result.success(taskId);
-        sendUpdateProgress(taskId, DownloadStatus.ENQUEUED, 0,"");
+        sendUpdateProgress(taskId, DownloadStatus.ENQUEUED, 0, "");
         taskDao.insertOrUpdateNewTask(taskId, url, DownloadStatus.ENQUEUED, 0, filename, savedDir, headers,
                 showNotification, openFileFromNotification, albumName, artistName, artistId, playlistId, albumId, musicId);
     }
@@ -225,10 +262,11 @@ public class FlutterDownloaderPlugin implements MethodCallHandler, FlutterPlugin
             WorkRequest request = buildRequest(url, savedDir, filename, headers, showNotification,
                     openFileFromNotification, false, requiresStorageNotLow, albumName, artistName,
                     artistId, playlistId, albumId, musicId);
-            WorkManager.getInstance(context).enqueue(request);
+            _addToQueue(request);
+            //WorkManager.getInstance(context).enqueue(request);
             String taskId = request.getId().toString();
             taskIds.add(taskId);
-            sendUpdateProgress(taskId, DownloadStatus.ENQUEUED, 0,"");
+            sendUpdateProgress(taskId, DownloadStatus.ENQUEUED, 0, "");
             taskDao.insertOrUpdateNewTask(taskId, url, DownloadStatus.ENQUEUED, 0, filename, savedDir, headers,
                     showNotification, openFileFromNotification, albumName, artistName,
                     artistId, playlistId, albumId, musicId);
@@ -308,7 +346,7 @@ public class FlutterDownloaderPlugin implements MethodCallHandler, FlutterPlugin
         boolean requiresStorageNotLow = call.argument("requires_storage_not_low");
         String headers = call.argument("headers");
         if (task != null) {
-            final String  finalHeaders = TextUtils.isEmpty(headers) ? task.headers : headers;
+            final String finalHeaders = TextUtils.isEmpty(headers) ? task.headers : headers;
             if (task.status == DownloadStatus.PAUSED) {
                 String filename = task.filename;
                 if (filename == null) {
@@ -322,7 +360,7 @@ public class FlutterDownloaderPlugin implements MethodCallHandler, FlutterPlugin
                             task.albumName, task.artistName, task.artistId, task.playlistId, task.albumId, task.musicId);
                     String newTaskId = request.getId().toString();
                     result.success(newTaskId);
-                    sendUpdateProgress(newTaskId, DownloadStatus.RUNNING, task.progress,"");
+                    sendUpdateProgress(newTaskId, DownloadStatus.RUNNING, task.progress, "");
                     taskDao.updateTask(taskId, newTaskId, DownloadStatus.RUNNING, task.progress, false);
                     WorkManager.getInstance(context).enqueue(request);
                 } else {
@@ -344,13 +382,13 @@ public class FlutterDownloaderPlugin implements MethodCallHandler, FlutterPlugin
         String headers = call.argument("headers");
         if (task != null) {
             if (task.status == DownloadStatus.FAILED || task.status == DownloadStatus.CANCELED) {
-                final String  finalHeaders = TextUtils.isEmpty(headers) ? task.headers : headers;
+                final String finalHeaders = TextUtils.isEmpty(headers) ? task.headers : headers;
                 WorkRequest request = buildRequest(task.url, task.savedDir, task.filename, finalHeaders,
                         task.showNotification, task.openFileFromNotification, false, requiresStorageNotLow,
                         task.albumName, task.artistName, task.artistId, task.playlistId, task.albumId, task.musicId);
                 String newTaskId = request.getId().toString();
                 result.success(newTaskId);
-                sendUpdateProgress(newTaskId, DownloadStatus.ENQUEUED, task.progress,"");
+                sendUpdateProgress(newTaskId, DownloadStatus.ENQUEUED, task.progress, "");
                 taskDao.updateTask(taskId, newTaskId, DownloadStatus.ENQUEUED, task.progress, false);
                 WorkManager.getInstance(context).enqueue(request);
             } else {
@@ -413,7 +451,7 @@ public class FlutterDownloaderPlugin implements MethodCallHandler, FlutterPlugin
                 if (audioExtension.contains(extension)) {
                     Uri rootUri = MediaStore.Audio.Media.getContentUriForPath(saveFilePath);
                     context.getContentResolver().delete(rootUri,
-                            MediaStore.MediaColumns.DATA + "=?", new String[] {saveFilePath});
+                            MediaStore.MediaColumns.DATA + "=?", new String[]{saveFilePath});
                 }
                 File tempFile = new File(saveFilePath);
                 if (tempFile.exists()) {

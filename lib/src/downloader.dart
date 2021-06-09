@@ -272,6 +272,17 @@ class FlutterDownloader {
     }
   }
 
+  static Future<Null> doQueue() async {
+    assert(_initialized, 'FlutterDownloader.initialize() must be called first');
+
+    try {
+      return await _channel.invokeMethod('doQueue');
+    } on PlatformException catch (e) {
+      print(e.message);
+      return null;
+    }
+  }
+
   ///
   /// Cancel all enqueued and running download tasks
   ///
