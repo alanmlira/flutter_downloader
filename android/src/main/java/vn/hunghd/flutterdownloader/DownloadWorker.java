@@ -27,7 +27,10 @@ import androidx.core.content.ContextCompat;
 import androidx.work.Worker;
 import androidx.work.WorkerParameters;
 
+import com.mpatric.mp3agic.AbstractID3v2Tag;
 import com.mpatric.mp3agic.ID3v1Tag;
+import com.mpatric.mp3agic.ID3v22Tag;
+import com.mpatric.mp3agic.ID3v23Tag;
 import com.mpatric.mp3agic.ID3v24Tag;
 import com.mpatric.mp3agic.Mp3File;
 
@@ -140,12 +143,10 @@ public class DownloadWorker extends Worker implements MethodChannel.MethodCallHa
                     Log.e(TAG, "Fatal: failed to find callback");
                     return;
                 }
-
                 flutterEngine = new FlutterEngine(getApplicationContext());
                 final String appBundlePath = FlutterInjector.instance().flutterLoader().findAppBundlePath();
                 final AssetManager assets = getApplicationContext().getAssets();
                 flutterEngine.getDartExecutor().executeDartCallback(new DartExecutor.DartCallback(assets, appBundlePath, callbackInfo));
-
             }
         }
         backgroundChannel =
@@ -171,6 +172,7 @@ public class DownloadWorker extends Worker implements MethodChannel.MethodCallHa
     @NonNull
     @Override
     public Result doWork() {
+
         Context context = getApplicationContext();
         dbHelper = TaskDbHelper.getInstance(context);
         taskDao = new TaskDao(dbHelper);
@@ -747,11 +749,15 @@ public class DownloadWorker extends Worker implements MethodChannel.MethodCallHa
                             ID3v1Tag id3v1Tag = new ID3v1Tag();
                             id3v1Tag.setComment("Sua Música");
                             mp3File.setId3v1Tag(id3v1Tag);
-                            ID3v24Tag id3v2Tag;
+                            AbstractID3v2Tag id3v2Tag  = new ID3v24Tag();
                             if (mp3File.hasId3v2Tag()) {
-                                id3v2Tag = (ID3v24Tag) mp3File.getId3v2Tag();
-                            } else {
-                                id3v2Tag = new ID3v24Tag();
+                                if(mp3File.getId3v2Tag() instanceof ID3v24Tag){
+                                    id3v2Tag = (ID3v24Tag) mp3File.getId3v2Tag();
+                                } else if (mp3File.getId3v2Tag() instanceof ID3v23Tag) {
+                                    id3v2Tag = (ID3v23Tag) mp3File.getId3v2Tag();
+                                } else {
+                                    id3v2Tag =  (ID3v22Tag) mp3File.getId3v2Tag();
+                                }
                             }
                             id3v2Tag.setAlbum(argMusicAlbum);
                             id3v2Tag.setAlbumArtist(argMusicArtist);
