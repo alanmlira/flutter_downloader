@@ -34,18 +34,43 @@ class DownloadTaskStatus {
 /// plugin will try to extract a file name from HTTP headers response or `url`
 ///
 class DownloadItem {
+  DownloadItem({
+    this.url,
+    this.savedDir,
+    this.fileName,
+    this.albumName,
+    this.artistName,
+    this.artistId,
+    this.playlistId,
+    this.albumId,
+    this.musicId,
+  });
+
   final String url;
   final String savedDir;
   final String fileName;
-
-  DownloadItem({this.url, this.savedDir, this.fileName});
+  final String albumName;
+  final String artistName;
+  final String artistId;
+  final String playlistId;
+  final String albumId;
+  final String musicId;
 
   @override
   String toString() =>
-      "DownloadItem(url: $url, savedDir: $savedDir, fileName: $fileName)";
+      "DownloadItem(url: $url, savedDir: $savedDir, fileName: $fileName, albumName: $albumName, artistName: $artistName, albumName: $albumName)";
 
-  Map<String, String> toMap() =>
-      {"url": url, "saved_dir": savedDir, "file_name": fileName};
+  Map<String, String> toMap() => {
+        "url": url,
+        "saved_dir": savedDir,
+        "file_name": fileName,
+        "music_album": albumName,
+        "music_artist": artistName,
+        "artist_id": artistId,
+        "playlist_id": playlistId,
+        "album_id": albumId,
+        "music_id": musicId
+      };
 }
 
 ///
@@ -66,16 +91,34 @@ class DownloadTask {
   final String url;
   final String filename;
   final String savedDir;
+  final int timeCreated;
+  final String albumName;
+  final String artistName;
+  final String artistId;
+  final String playlistId;
+  final String albumId;
+  final String musicId;
 
-  DownloadTask(
-      {this.taskId,
-      this.status,
-      this.progress,
-      this.url,
-      this.filename,
-      this.savedDir});
+  DownloadTask({
+    this.taskId,
+    this.status,
+    this.progress,
+    this.url,
+    this.filename,
+    this.savedDir,
+    this.timeCreated,
+    this.albumName,
+    this.artistName,
+    this.artistId,
+    this.playlistId,
+    this.albumId,
+    this.musicId,
+  });
 
   @override
   String toString() =>
-      "DownloadTask(taskId: $taskId, status: $status, progress: $progress, url: $url, filename: $filename, savedDir: $savedDir)";
+      "DownloadTask(taskId: $taskId, status: $status, progress: $progress, "
+      "url: $url, filename: $filename, savedDir: $savedDir, timeCreated: $timeCreated, "
+      "albumName: $albumName, artistName: $artistName, artistId: $artistId, "
+      "playlistId: $playlistId, albumId: $albumId, musicId: $musicId)";
 }

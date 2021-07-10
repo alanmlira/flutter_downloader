@@ -1,3 +1,29 @@
+## 1.5.2 - 25.10.2020
+
+* Android: fix bug notification stuck in processing
+
+## 1.5.1 - 27.09.2020
+
+* iOS: fix bug missing update download progress
+
+## 1.5.0 - 09.08.2020
+
+* Update `pubspec` to new format
+* Upgrade `AndroidWorkManager` to v2.4.0
+
+## 1.4.4 - 18.04.2020
+
+* add `debug` (optional) parameter in `initialize()` method that supports disable logging to console
+
+## 1.4.3 - 09.04.2020
+
+* iOS: fix bug on `remove` method
+
+## 1.4.2 - 02.04.2020
+
+* add `timeCreated` in `DownloadTask` model
+* iOS: fix bug MissingPluginException
+
 ## 1.4.1 - 30.01.2020
 
 * Android: fix bug `ensureInitializationComplete must be called after startInitialization`

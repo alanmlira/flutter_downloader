@@ -8,10 +8,14 @@ import android.content.ContentValues;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 import android.content.res.Resources;
 import android.graphics.BitmapFactory;
 import android.os.Build;
+import android.net.Uri;
+
+import java.io.File;
 
 import androidx.annotation.NonNull;
 import androidx.core.app.NotificationCompat;
@@ -47,6 +51,13 @@ import java.util.regex.Pattern;
 import androidx.work.Worker;
 import androidx.work.WorkerParameters;
 
+import com.mpatric.mp3agic.ID3v1Tag;
+import com.mpatric.mp3agic.ID3v24Tag;
+import com.mpatric.mp3agic.InvalidDataException;
+import com.mpatric.mp3agic.Mp3File;
+import com.mpatric.mp3agic.NotSupportedException;
+import com.mpatric.mp3agic.UnsupportedTagException;
+
 import io.flutter.plugin.common.MethodCall;
 import io.flutter.plugin.common.MethodChannel;
 import io.flutter.plugin.common.PluginRegistry;
@@ -65,6 +76,18 @@ public class DownloadWorker extends Worker implements MethodChannel.MethodCallHa
     public static final String ARG_SHOW_NOTIFICATION = "show_notification";
     public static final String ARG_OPEN_FILE_FROM_NOTIFICATION = "open_file_from_notification";
     public static final String ARG_CALLBACK_HANDLE = "callback_handle";
+    public static final String ARG_DEBUG = "debug";
+    public static final String ARG_MUSIC_ARTIST = "music_artist";
+    public static final String ARG_MUSIC_ALBUM = "music_album";
+    public static final String ARG_SM_EXTRAS = "sm_extras";
+    public static final String ARG_ARTIST_ID = "artist_id";
+    public static final String ARG_PLAYLIST_ID = "playlist_id";
+    public static final String ARG_ALBUM_ID = "album_id";
+    public static final String ARG_MUSIC_ID = "music_id";
+
+    public static final String IS_PENDING = "is_pending";
+    public static final String USER_AGENT = "SuaMusica/downloader (Linux; Android "
+            + Build.VERSION.SDK_INT + "; " + Build.BRAND + "/" + Build.MODEL + ")";
 
     private static final String TAG = DownloadWorker.class.getSimpleName();
     private static final int BUFFER_SIZE = 4096;
@@ -80,15 +103,27 @@ public class DownloadWorker extends Worker implements MethodChannel.MethodCallHa
     private MethodChannel backgroundChannel;
     private TaskDbHelper dbHelper;
     private TaskDao taskDao;
-    private NotificationCompat.Builder builder;
     private boolean showNotification;
     private boolean clickToOpenDownloadedFile;
+    private boolean debug;
     private int lastProgress = 0;
     private int primaryId;
-    private String msgStarted, msgInProgress, msgCanceled, msgFailed, msgPaused, msgComplete;
+    private String msgStarted;
+    private String  msgInProgress;
+    private String msgCanceled;
+    private String msgFailed;
+    private String msgPaused;
+    private String msgComplete;
+    private String argMusicArtist;
+    private String argMusicAlbum;
+    private String argArtistId;
+    private String argPlaylistId;
+    private String argAlbumId;
+    private String argMusicId;
+    private String argSMExtras;
+    private long lastCallUpdateNotification = 0;
 
-    public DownloadWorker(@NonNull final Context context,
-                          @NonNull WorkerParameters params) {
+    public DownloadWorker(@NonNull final Context context, @NonNull WorkerParameters params) {
         super(context, params);
 
         new Handler(context.getMainLooper()).post(new Runnable() {
@@ -102,13 +137,18 @@ public class DownloadWorker extends Worker implements MethodChannel.MethodCallHa
     private void startBackgroundIsolate(Context context) {
         synchronized (isolateStarted) {
             if (backgroundFlutterView == null) {
-                SharedPreferences pref = context.getSharedPreferences(FlutterDownloaderPlugin.SHARED_PREFERENCES_KEY, Context.MODE_PRIVATE);
-                long callbackHandle = pref.getLong(FlutterDownloaderPlugin.CALLBACK_DISPATCHER_HANDLE_KEY, 0);
+                SharedPreferences pref = context.getSharedPreferences(
+                        FlutterDownloaderPlugin.SHARED_PREFERENCES_KEY, Context.MODE_PRIVATE);
+                long callbackHandle =
+                        pref.getLong(FlutterDownloaderPlugin.CALLBACK_DISPATCHER_HANDLE_KEY, 0);
 
-                FlutterMain.startInitialization(context); // Starts initialization of the native system, if already initialized this does nothing
+                FlutterMain.startInitialization(context); // Starts initialization of the native
+                // system, if already initialized this
+                // does nothing
                 FlutterMain.ensureInitializationComplete(context, null);
 
-                FlutterCallbackInformation callbackInfo = FlutterCallbackInformation.lookupCallbackInformation(callbackHandle);
+                FlutterCallbackInformation callbackInfo =
+                        FlutterCallbackInformation.lookupCallbackInformation(callbackHandle);
                 if (callbackInfo == null) {
                     Log.e(TAG, "Fatal: failed to find callback");
                     return;
@@ -118,13 +158,14 @@ public class DownloadWorker extends Worker implements MethodChannel.MethodCallHa
 
                 /// backward compatibility with V1 embedding
                 if (getApplicationContext() instanceof PluginRegistrantCallback) {
-                    PluginRegistrantCallback pluginRegistrantCallback = (PluginRegistrantCallback) getApplicationContext();
+                    PluginRegistrantCallback pluginRegistrantCallback =
+                            (PluginRegistrantCallback) getApplicationContext();
                     PluginRegistry registry = backgroundFlutterView.getPluginRegistry();
                     pluginRegistrantCallback.registerWith(registry);
                 }
 
                 FlutterRunArguments args = new FlutterRunArguments();
-                args.bundlePath = FlutterMain.findAppBundlePath(context);
+                args.bundlePath = FlutterMain.findAppBundlePath();
                 args.entrypoint = callbackInfo.callbackName;
                 args.libraryPath = callbackInfo.callbackLibraryPath;
 
@@ -132,7 +173,8 @@ public class DownloadWorker extends Worker implements MethodChannel.MethodCallHa
             }
         }
 
-        backgroundChannel = new MethodChannel(backgroundFlutterView, "vn.hunghd/downloader_background");
+        backgroundChannel =
+                new MethodChannel(backgroundFlutterView, "vn.hunghd/downloader_background");
         backgroundChannel.setMethodCallHandler(this);
     }
 
@@ -163,6 +205,13 @@ public class DownloadWorker extends Worker implements MethodChannel.MethodCallHa
         String savedDir = getInputData().getString(ARG_SAVED_DIR);
         String headers = getInputData().getString(ARG_HEADERS);
         boolean isResume = getInputData().getBoolean(ARG_IS_RESUME, false);
+        debug = getInputData().getBoolean(ARG_DEBUG, false);
+        argMusicArtist = getInputData().getString(ARG_MUSIC_ARTIST);
+        argMusicAlbum = getInputData().getString(ARG_MUSIC_ALBUM);
+        argArtistId = getInputData().getString(ARG_ARTIST_ID);
+        argPlaylistId = getInputData().getString(ARG_PLAYLIST_ID);
+        argAlbumId = getInputData().getString(ARG_ALBUM_ID);
+        argMusicId = getInputData().getString(ARG_MUSIC_ID);
 
         Resources res = getApplicationContext().getResources();
         msgStarted = res.getString(R.string.flutter_downloader_notification_started);
@@ -172,18 +221,25 @@ public class DownloadWorker extends Worker implements MethodChannel.MethodCallHa
         msgPaused = res.getString(R.string.flutter_downloader_notification_paused);
         msgComplete = res.getString(R.string.flutter_downloader_notification_complete);
 
-        Log.d(TAG, "DownloadWorker{url=" + url + ",filename=" + filename + ",savedDir=" + savedDir + ",header=" + headers + ",isResume=" + isResume);
+        Log.i(TAG, "DownloadWorker{url=" + url + ",filename=" + filename + ",savedDir=" + savedDir
+                + ",header=" + headers + ",isResume=" + isResume + ",argMusicArtist=" + argMusicArtist
+                + ",argMusicAlbum=" + argMusicAlbum + ",argArtistId=" + argArtistId +
+                ",argArtistId=" + argArtistId + ",argPlaylistId=" + argPlaylistId +
+                ",argAlbumId=" + argAlbumId + ",argMusicId=" + argMusicId + ",argSMExtras="
+                + argSMExtras);
 
         showNotification = getInputData().getBoolean(ARG_SHOW_NOTIFICATION, false);
-        clickToOpenDownloadedFile = getInputData().getBoolean(ARG_OPEN_FILE_FROM_NOTIFICATION, false);
+        clickToOpenDownloadedFile =
+                getInputData().getBoolean(ARG_OPEN_FILE_FROM_NOTIFICATION, false);
 
         DownloadTask task = taskDao.loadTask(getId().toString());
         primaryId = task.primaryId;
 
-        buildNotification(context);
+        setupNotification(context);
 
-        updateNotification(context, filename == null ? url : filename, DownloadStatus.RUNNING, task.progress, null);
-        taskDao.updateTask(getId().toString(), DownloadStatus.RUNNING, 0);
+        updateNotification(context, filename == null ? url : filename, DownloadStatus.RUNNING,
+                task.progress, null, false, "");
+        taskDao.updateTask(getId().toString(), DownloadStatus.RUNNING, task.progress);
 
         try {
             downloadFile(context, url, savedDir, filename, headers, isResume);
@@ -192,7 +248,9 @@ public class DownloadWorker extends Worker implements MethodChannel.MethodCallHa
             taskDao = null;
             return Result.success();
         } catch (Exception e) {
-            updateNotification(context, filename == null ? url : filename, DownloadStatus.FAILED, -1, null);
+            String errorMessage = e.getMessage();
+            updateNotification(context, filename == null ? url : filename, DownloadStatus.FAILED,
+                    -1, null, true, (errorMessage != null) ? errorMessage : "No Message");
             taskDao.updateTask(getId().toString(), DownloadStatus.FAILED, lastProgress);
             e.printStackTrace();
             dbHelper = null;
@@ -203,10 +261,10 @@ public class DownloadWorker extends Worker implements MethodChannel.MethodCallHa
 
     private void setupHeaders(HttpURLConnection conn, String headers) {
         if (!TextUtils.isEmpty(headers)) {
-            Log.d(TAG, "Headers = " + headers);
+            log("Headers = " + headers);
             try {
                 JSONObject json = new JSONObject(headers);
-                for (Iterator<String> it = json.keys(); it.hasNext(); ) {
+                for (Iterator<String> it = json.keys(); it.hasNext();) {
                     String key = it.next();
                     conn.setRequestProperty(key, json.getString(key));
                 }
@@ -217,18 +275,20 @@ public class DownloadWorker extends Worker implements MethodChannel.MethodCallHa
         }
     }
 
-    private long setupPartialDownloadedDataHeader(HttpURLConnection conn, String filename, String savedDir) {
+    private long setupPartialDownloadedDataHeader(HttpURLConnection conn, String filename,
+            String savedDir) {
         String saveFilePath = savedDir + File.separator + filename;
         File partialFile = new File(saveFilePath);
         long downloadedBytes = partialFile.length();
-        Log.d(TAG, "Resume download: Range: bytes=" + downloadedBytes + "-");
+        log("Resume download: Range: bytes=" + downloadedBytes + "-");
         conn.setRequestProperty("Accept-Encoding", "identity");
         conn.setRequestProperty("Range", "bytes=" + downloadedBytes + "-");
         conn.setDoInput(true);
         return downloadedBytes;
     }
 
-    private void downloadFile(Context context, String fileURL, String savedDir, String filename, String headers, boolean isResume) throws IOException {
+    private void downloadFile(Context context, String fileURL, String savedDir, String filename,
+            String headers, boolean isResume) throws IOException {
         String url = fileURL;
         URL resourceUrl, base, next;
         Map<String, Integer> visited;
@@ -257,33 +317,36 @@ public class DownloadWorker extends Worker implements MethodChannel.MethodCallHa
                     throw new IOException("Stuck in redirect loop");
 
                 resourceUrl = new URL(url);
-                Log.d(TAG, "Open connection to " + url);
+                log("Open connection to " + url);
                 httpConn = (HttpURLConnection) resourceUrl.openConnection();
 
                 httpConn.setConnectTimeout(15000);
                 httpConn.setReadTimeout(15000);
-                httpConn.setInstanceFollowRedirects(false);   // Make the logic below easier to detect redirections
-                httpConn.setRequestProperty("User-Agent", "Mozilla/5.0...");
+                httpConn.setInstanceFollowRedirects(false); // Make the logic below easier to detect
+                // redirections
+                log("Using Agent " + USER_AGENT);
+                httpConn.setRequestProperty("User-Agent", USER_AGENT);
 
                 // setup request headers if it is set
                 setupHeaders(httpConn, headers);
                 // try to continue downloading a file from its partial downloaded data.
                 if (isResume) {
-                    downloadedBytes = setupPartialDownloadedDataHeader(httpConn, filename, savedDir);
+                    downloadedBytes =
+                            setupPartialDownloadedDataHeader(httpConn, filename, savedDir);
                 }
 
                 responseCode = httpConn.getResponseCode();
                 switch (responseCode) {
                     case HttpURLConnection.HTTP_MOVED_PERM:
-                    case HttpURLConnection.HTTP_SEE_OTHER:    
+                    case HttpURLConnection.HTTP_SEE_OTHER:
                     case HttpURLConnection.HTTP_MOVED_TEMP:
-                        Log.d(TAG, "Response with redirection code");
+                        log("Response with redirection code");
                         location = httpConn.getHeaderField("Location");
-                        Log.d(TAG, "Location = " + location);
+                        log("Location = " + location);
                         base = new URL(fileURL);
-                        next = new URL(base, location);  // Deal with relative URLs
+                        next = new URL(base, location); // Deal with relative URLs
                         url = next.toExternalForm();
-                        Log.d(TAG, "New url: " + url);
+                        log("New url: " + url);
                         continue;
                 }
 
@@ -292,22 +355,29 @@ public class DownloadWorker extends Worker implements MethodChannel.MethodCallHa
 
             httpConn.connect();
 
-            if ((responseCode == HttpURLConnection.HTTP_OK || (isResume && responseCode == HttpURLConnection.HTTP_PARTIAL)) && !isStopped()) {
+            if ((responseCode == HttpURLConnection.HTTP_OK
+                    || (isResume && responseCode == HttpURLConnection.HTTP_PARTIAL))
+                    && !isStopped()) {
                 String contentType = httpConn.getContentType();
+                if(contentType.contains("multipart/")){
+                    contentType = "application/octet-stream";
+                }
                 int contentLength = httpConn.getContentLength();
-                Log.d(TAG, "Content-Type = " + contentType);
-                Log.d(TAG, "Content-Length = " + contentLength);
+                log("Content-Type = " + contentType);
+                log("Content-Length = " + contentLength);
 
                 String charset = getCharsetFromContentType(contentType);
-                Log.d(TAG, "Charset = " + charset);
+                log("Charset = " + charset);
                 if (!isResume) {
                     // try to extract filename from HTTP headers if it is not given by user
                     if (filename == null) {
                         String disposition = httpConn.getHeaderField("Content-Disposition");
-                        Log.d(TAG, "Content-Disposition = " + disposition);
+                        log("Content-Disposition = " + disposition);
                         if (disposition != null && !disposition.isEmpty()) {
-                            String name = disposition.replaceFirst("(?i)^.*filename=\"?([^\"]+)\"?.*$", "$1");
-                            filename = URLDecoder.decode(name, charset != null ? charset : "ISO-8859-1");
+                            String name = disposition
+                                    .replaceFirst("(?i)^.*filename=\"?([^\"]+)\"?.*$", "$1");
+                            filename = URLDecoder.decode(name,
+                                    charset != null ? charset : "ISO-8859-1");
                         }
                         if (filename == null || filename.isEmpty()) {
                             filename = url.substring(url.lastIndexOf("/") + 1);
@@ -316,7 +386,7 @@ public class DownloadWorker extends Worker implements MethodChannel.MethodCallHa
                 }
                 saveFilePath = savedDir + File.separator + filename;
 
-                Log.d(TAG, "fileName = " + filename);
+                log("fileName = " + filename);
 
                 taskDao.updateTask(getId().toString(), filename, contentType);
 
@@ -334,14 +404,18 @@ public class DownloadWorker extends Worker implements MethodChannel.MethodCallHa
                     int progress = (int) ((count * 100) / (contentLength + downloadedBytes));
                     outputStream.write(buffer, 0, bytesRead);
 
-                    if ((lastProgress == 0 || progress > lastProgress + STEP_UPDATE || progress == 100)
-                            && progress != lastProgress) {
+                    if ((lastProgress == 0 || progress > lastProgress + STEP_UPDATE
+                            || progress == 100) && progress != lastProgress) {
                         lastProgress = progress;
-                        updateNotification(context, filename, DownloadStatus.RUNNING, progress, null);
+                        updateNotification(context, filename, DownloadStatus.RUNNING, progress,
+                                null, false, "");
 
-                        // This line possibly causes system overloaded because of accessing to DB too many ?!!!
-                        // but commenting this line causes tasks loaded from DB missing current downloading progress,
-                        // however, this missing data should be temporary and it will be updated as soon as
+                        // This line possibly causes system overloaded because of accessing to DB
+                        // too many ?!!!
+                        // but commenting this line causes tasks loaded from DB missing current
+                        // downloading progress,
+                        // however, this missing data should be temporary and it will be updated as
+                        // soon as
                         // a new bunch of data fetched and a notification sent
                         taskDao.updateTask(getId().toString(), DownloadStatus.RUNNING, progress);
                     }
@@ -349,38 +423,53 @@ public class DownloadWorker extends Worker implements MethodChannel.MethodCallHa
 
                 DownloadTask task = taskDao.loadTask(getId().toString());
                 int progress = isStopped() && task.resumable ? lastProgress : 100;
-                int status = isStopped() ? (task.resumable ? DownloadStatus.PAUSED : DownloadStatus.CANCELED) : DownloadStatus.COMPLETE;
-                int storage = ContextCompat.checkSelfPermission(getApplicationContext(), android.Manifest.permission.WRITE_EXTERNAL_STORAGE);
+                int status = isStopped()
+                        ? (task.resumable ? DownloadStatus.PAUSED : DownloadStatus.CANCELED)
+                        : DownloadStatus.COMPLETE;
+                int storage = ContextCompat.checkSelfPermission(getApplicationContext(),
+                        android.Manifest.permission.WRITE_EXTERNAL_STORAGE);
                 PendingIntent pendingIntent = null;
                 if (status == DownloadStatus.COMPLETE) {
-                    if (isImageOrVideoFile(contentType) && isExternalStoragePath(saveFilePath)) {
-                        addImageOrVideoToGallery(filename, saveFilePath, getContentTypeWithoutCharset(contentType));
+                    if (isMediaFile(contentType) && isExternalStoragePath(saveFilePath)) {
+                        addMediaToGallery(filename, saveFilePath,
+                                getContentTypeWithoutCharset(contentType));
                     }
-
                     if (clickToOpenDownloadedFile && storage == PackageManager.PERMISSION_GRANTED) {
-                        Intent intent = IntentUtils.validatedFileIntent(getApplicationContext(), saveFilePath, contentType);
+                        Intent intent = IntentUtils.validatedFileIntent(getApplicationContext(),
+                                saveFilePath, contentType);
                         if (intent != null) {
-                            Log.d(TAG, "Setting an intent to open the file " + saveFilePath);
-                            pendingIntent = PendingIntent.getActivity(getApplicationContext(), 0, intent, PendingIntent.FLAG_CANCEL_CURRENT);
+                            log("Setting an intent to open the file " + saveFilePath);
+                            pendingIntent = PendingIntent.getActivity(getApplicationContext(), 0,
+                                    intent, PendingIntent.FLAG_CANCEL_CURRENT);
                         } else {
-                            Log.d(TAG, "There's no application that can open the file " + saveFilePath);
+                            log("There's no application that can open the file " + saveFilePath);
                         }
                     }
                 }
-                Log.d(TAG, "===> updateNotification: (filename: " + filename + ", status: " + status + ")");
-                updateNotification(context, filename, status, progress, pendingIntent);
+                Log.d(TAG, "===> updateNotification: (filename: " + filename + ", status: " + status
+                        + ")");
+                updateNotification(context, filename, status, progress, pendingIntent, true,
+                        isStopped() ? "Download canceled" : "");
                 taskDao.updateTask(getId().toString(), status, progress);
 
-                Log.d(TAG, isStopped() ? "Download canceled" : "File downloaded");
+                log(isStopped() ? "Download canceled" : "File downloaded");
             } else {
                 DownloadTask task = taskDao.loadTask(getId().toString());
-                int status = isStopped() ? (task.resumable ? DownloadStatus.PAUSED : DownloadStatus.CANCELED) : DownloadStatus.FAILED;
-                updateNotification(context, filename, status, -1, null);
+                String errorMessage = isStopped() ? "Download canceled"
+                        : "Server replied HTTP code: " + responseCode;
+                int status = isStopped()
+                        ? (task.resumable ? DownloadStatus.PAUSED : DownloadStatus.CANCELED)
+                        : DownloadStatus.FAILED;
+                updateNotification(context, filename == null ? fileURL : filename, status, -1, null,
+                        true, errorMessage);
                 taskDao.updateTask(getId().toString(), status, lastProgress);
-                Log.d(TAG, isStopped() ? "Download canceled" : "Server replied HTTP code: " + responseCode);
+                log(errorMessage);
             }
         } catch (IOException e) {
-            updateNotification(context, filename == null ? fileURL : filename, DownloadStatus.FAILED, -1, null);
+            String errorMessage = e.getMessage();
+            updateNotification(context, filename == null ? fileURL : filename,
+                    DownloadStatus.FAILED, -1, null, true,
+                    (errorMessage != null) ? errorMessage : "No Message 2");
             taskDao.updateTask(getId().toString(), DownloadStatus.FAILED, lastProgress);
             e.printStackTrace();
         } finally {
@@ -421,92 +510,134 @@ public class DownloadWorker extends Worker implements MethodChannel.MethodCallHa
         }
     }
 
-    private void buildNotification(Context context) {
+    private int getNotificationIconRes() {
+        try {
+            ApplicationInfo applicationInfo =
+                    getApplicationContext().getPackageManager().getApplicationInfo(
+                            getApplicationContext().getPackageName(), PackageManager.GET_META_DATA);
+            int appIconResId = applicationInfo.icon;
+            return applicationInfo.metaData.getInt("vn.hunghd.flutterdownloader.NOTIFICATION_ICON",
+                    appIconResId);
+        } catch (PackageManager.NameNotFoundException e) {
+            e.printStackTrace();
+        }
+        return 0;
+    }
+
+    private void setupNotification(Context context) {
+        if (!showNotification)
+            return;
         // Make a channel if necessary
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             // Create the NotificationChannel, but only on API 26+ because
             // the NotificationChannel class is new and not in the support library
 
-            CharSequence name = context.getApplicationInfo().loadLabel(context.getPackageManager());
-            int importance = NotificationManager.IMPORTANCE_DEFAULT;
-            NotificationChannel channel = new NotificationChannel(CHANNEL_ID, name, importance);
+
+            Resources res = getApplicationContext().getResources();
+            String channelName =
+                    res.getString(R.string.flutter_downloader_notification_channel_name);
+            String channelDescription =
+                    res.getString(R.string.flutter_downloader_notification_channel_description);
+            int importance = NotificationManager.IMPORTANCE_LOW;
+            NotificationChannel channel =
+                    new NotificationChannel(CHANNEL_ID, channelName, importance);
+            channel.setDescription(channelDescription);
             channel.setSound(null, null);
 
             // Add the channel
-            NotificationManager notificationManager = context.getSystemService(NotificationManager.class);
-
-            if (notificationManager != null) {
-                notificationManager.createNotificationChannel(channel);
-            }
+            NotificationManagerCompat notificationManager = NotificationManagerCompat.from(context);
+            notificationManager.createNotificationChannel(channel);
         }
-
-        // Create the notification
-        builder = new NotificationCompat.Builder(context, CHANNEL_ID)
-//                .setSmallIcon(R.drawable.ic_download)
-                .setOnlyAlertOnce(true)
-                .setAutoCancel(true)
-                .setPriority(NotificationCompat.PRIORITY_DEFAULT);
 
     }
 
-    private void updateNotification(Context context, String title, int status, int progress, PendingIntent intent) {
-        builder.setContentTitle(title);
-        builder.setContentIntent(intent);
-        boolean shouldUpdate = false;
-
-        if (status == DownloadStatus.RUNNING) {
-            shouldUpdate = true;
-            builder.setContentText(progress == 0 ? msgStarted : msgInProgress)
-                    .setProgress(100, progress, progress == 0);
-            builder.setOngoing(true)
-                    .setSmallIcon(android.R.drawable.stat_sys_download)
-                    .setLargeIcon(BitmapFactory.decodeResource(getApplicationContext().getResources(),
-                            android.R.drawable.stat_sys_download));
-        } else if (status == DownloadStatus.CANCELED) {
-            shouldUpdate = true;
-            builder.setContentText(msgCanceled).setProgress(0, 0, false);
-            builder.setOngoing(false)
-                    .setSmallIcon(android.R.drawable.stat_sys_download_done)
-                    .setLargeIcon(BitmapFactory.decodeResource(getApplicationContext().getResources(),
-                            android.R.drawable.stat_sys_download_done));
-        } else if (status == DownloadStatus.FAILED) {
-            shouldUpdate = true;
-            builder.setContentText(msgFailed).setProgress(0, 0, false);
-            builder.setOngoing(false)
-                    .setSmallIcon(android.R.drawable.stat_sys_download_done)
-                    .setLargeIcon(BitmapFactory.decodeResource(getApplicationContext().getResources(),
-                            android.R.drawable.stat_sys_download_done));
-        } else if (status == DownloadStatus.PAUSED) {
-            shouldUpdate = true;
-            builder.setContentText(msgPaused).setProgress(0, 0, false);
-            builder.setOngoing(false)
-                    .setSmallIcon(android.R.drawable.stat_sys_download_done)
-                    .setLargeIcon(BitmapFactory.decodeResource(getApplicationContext().getResources(),
-                            android.R.drawable.stat_sys_download_done));
-        } else if (status == DownloadStatus.COMPLETE) {
-            shouldUpdate = true;
-            builder.setContentText(msgComplete).setProgress(0, 0, false);
-            builder.setOngoing(false)
-                    .setSmallIcon(android.R.drawable.stat_sys_download_done)
-                    .setLargeIcon(BitmapFactory.decodeResource(getApplicationContext().getResources(),
-                            android.R.drawable.stat_sys_download_done));
-        }
+    private void updateNotification(Context context, String title, int status, int progress,
+            PendingIntent intent, boolean finalize, String errorType) {
+        sendUpdateProcessEvent(status, progress, errorType);
 
         // Show the notification
-        if (showNotification && shouldUpdate) {
-            NotificationManagerCompat.from(context).notify(primaryId, builder.build());
-        }
+        if (showNotification) {
+            Boolean cancelNotification = false;
+            // Create the notification
+            NotificationCompat.Builder builder = new NotificationCompat.Builder(context, CHANNEL_ID)
+                    .setContentTitle(title).setContentIntent(intent).setOnlyAlertOnce(true)
+                    .setAutoCancel(true).setPriority(NotificationCompat.PRIORITY_LOW);
 
-        sendUpdateProcessEvent(status, progress);
+            if (status == DownloadStatus.RUNNING) {
+                if (progress <= 0) {
+                    builder.setContentText(msgStarted).setProgress(0, 0, false);
+                    builder.setOngoing(false).setSmallIcon(getNotificationIconRes());
+                } else if (progress < 100) {
+                    builder.setContentText(msgInProgress).setProgress(100, progress, false);
+                    builder.setOngoing(true).setSmallIcon(android.R.drawable.stat_sys_download);
+                } else {
+                    // builder.setContentText(msgComplete).setProgress(0, 0, false);
+                    // builder.setOngoing(false)
+                    // .setSmallIcon(android.R.drawable.stat_sys_download_done);
+                    cancelNotification = true;
+                }
+            } else if (status == DownloadStatus.CANCELED) {
+                builder.setContentText(msgCanceled).setProgress(0, 0, false);
+                builder.setOngoing(false).setSmallIcon(android.R.drawable.stat_sys_download_done);
+            } else if (status == DownloadStatus.FAILED) {
+                builder.setContentText(msgFailed).setProgress(0, 0, false);
+                builder.setOngoing(false).setSmallIcon(android.R.drawable.stat_sys_download_done);
+            } else if (status == DownloadStatus.PAUSED) {
+                builder.setContentText(msgPaused).setProgress(0, 0, false);
+                builder.setOngoing(false).setSmallIcon(android.R.drawable.stat_sys_download_done);
+            } else if (status == DownloadStatus.COMPLETE) {
+                // builder.setContentText(msgComplete).setProgress(0, 0, false);
+                // builder.setOngoing(false)
+                // .setSmallIcon(android.R.drawable.stat_sys_download_done);
+                cancelNotification = true;
+            } else {
+                builder.setProgress(0, 0, false);
+                builder.setOngoing(false).setSmallIcon(getNotificationIconRes());
+            }
+
+            // Note: Android applies a rate limit when updating a notification.
+            // If you post updates to a notification too frequently (many in less than one second),
+            // the system might drop some updates.
+            // (https://developer.android.com/training/notify-user/build-notification#Updating)
+            //
+            // If this is progress update, it's not much important if it is dropped because there're
+            // still incoming updates later
+            // If this is the final update, it must be success otherwise the notification will be
+            // stuck at the processing state
+            // In order to ensure the final one is success, we check and sleep a second if need.
+            if (System.currentTimeMillis() - lastCallUpdateNotification < 1000) {
+                if (finalize) {
+                    log("Update too frequently!!!!, but it is the final update, we should sleep a second to ensure the update call can be processed");
+                    try {
+                        Thread.sleep(1000);
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    }
+                } else {
+                    log("Update too frequently!!!!, this should be dropped");
+                    return;
+                }
+            }
+
+            if (cancelNotification) {
+                NotificationManagerCompat.from(context).cancel(primaryId);
+            } else {
+                log("Update notification: {notificationId: " + primaryId + ", title: " + title
+                        + ", status: " + status + ", progress: " + progress + "}");
+                NotificationManagerCompat.from(context).notify(primaryId, builder.build());
+            }
+            lastCallUpdateNotification = System.currentTimeMillis();
+        }
     }
 
-    private void sendUpdateProcessEvent(int status, int progress) {
+    private void sendUpdateProcessEvent(int status, int progress, String errorType) {
         final List<Object> args = new ArrayList<>();
         long callbackHandle = getInputData().getLong(ARG_CALLBACK_HANDLE, 0);
         args.add(callbackHandle);
         args.add(getId().toString());
         args.add(status);
         args.add(progress);
+        args.add(errorType);
 
         synchronized (isolateStarted) {
             if (!isolateStarted.get()) {
@@ -539,17 +670,20 @@ public class DownloadWorker extends Worker implements MethodChannel.MethodCallHa
         return contentType.split(";")[0].trim();
     }
 
-    private boolean isImageOrVideoFile(String contentType) {
+    private boolean isMediaFile(String contentType) {
         contentType = getContentTypeWithoutCharset(contentType);
-        return (contentType != null && (contentType.startsWith("image/") || contentType.startsWith("video")));
+        return (contentType != null && (contentType.startsWith("image/")
+                || contentType.startsWith("video") || contentType.startsWith("audio")
+                || contentType.contains("octet-stream")));
     }
 
     private boolean isExternalStoragePath(String filePath) {
         File externalStorageDir = Environment.getExternalStorageDirectory();
-        return filePath != null && externalStorageDir != null && filePath.startsWith(externalStorageDir.getPath());
+        return filePath != null && externalStorageDir != null
+                && filePath.startsWith(externalStorageDir.getPath());
     }
 
-    private void addImageOrVideoToGallery(String fileName, String filePath, String contentType) {
+    private void addMediaToGallery(String fileName, String filePath, String contentType) {
         if (contentType != null && filePath != null && fileName != null) {
             if (contentType.startsWith("image/")) {
                 ContentValues values = new ContentValues();
@@ -562,7 +696,7 @@ public class DownloadWorker extends Worker implements MethodChannel.MethodCallHa
                 values.put(MediaStore.Images.Media.DATE_TAKEN, System.currentTimeMillis());
                 values.put(MediaStore.Images.Media.DATA, filePath);
 
-                Log.d(TAG, "insert " + values + " to MediaStore");
+                log("insert " + values + " to MediaStore");
 
                 ContentResolver contentResolver = getApplicationContext().getContentResolver();
                 contentResolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values);
@@ -577,11 +711,84 @@ public class DownloadWorker extends Worker implements MethodChannel.MethodCallHa
                 values.put(MediaStore.Video.Media.DATE_TAKEN, System.currentTimeMillis());
                 values.put(MediaStore.Video.Media.DATA, filePath);
 
-                Log.d(TAG, "insert " + values + " to MediaStore");
+                log("insert " + values + " to MediaStore");
 
                 ContentResolver contentResolver = getApplicationContext().getContentResolver();
                 contentResolver.insert(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, values);
+            } else if (contentType.startsWith("audio") || contentType.contains("octet-stream")) {
+                File file = new File(filePath);
+                if (file.exists()) {
+                    if (android.os.Build.VERSION.SDK_INT >= 23) {
+                        ContentValues values = new ContentValues();
+                        values.put(MediaStore.Audio.Media.TITLE, fileName);
+                        values.put(MediaStore.Audio.Media.DISPLAY_NAME, fileName);
+                        values.put(MediaStore.Audio.Media.MIME_TYPE, "audio/mpeg");
+                        values.put(MediaStore.Audio.Media.DATE_ADDED, System.currentTimeMillis());
+                        values.put(MediaStore.Audio.Media.DATA, filePath);
+                        values.put(MediaStore.Audio.Media.SIZE, file.getTotalSpace());
+
+                        values.put(MediaStore.Audio.Media.ARTIST, argMusicArtist);
+                        values.put(MediaStore.Audio.Media.ALBUM, argMusicAlbum);
+
+                        try {
+                            Mp3File mp3File = new Mp3File(filePath);
+                            ID3v1Tag id3v1Tag = new ID3v1Tag();
+                            id3v1Tag.setComment("Sua Música");
+                            mp3File.setId3v1Tag(id3v1Tag);
+
+                            ID3v24Tag id3v2Tag = new ID3v24Tag();
+                            id3v2Tag.setAlbum(argMusicAlbum);
+                            id3v2Tag.setAlbumArtist(argMusicArtist);
+                            id3v2Tag.setUrl(String.format("https://www.suamusica.com.br/perfil/%s?playlistId=%s&albumId=%s&musicId=%s", argArtistId, argPlaylistId, argAlbumId, argMusicId));
+                            mp3File.setId3v2Tag(id3v2Tag);
+
+                            String newFilename = filePath + ".tmp";
+                            mp3File.save(newFilename);
+
+                            File from = new File(newFilename);
+                            from.renameTo(file);
+
+                            Log.i(TAG, "Successfully set ID3v1 tags");
+                        } catch (Exception e) {
+                            Log.e(TAG, "Failed to set ID3v1 tags", e);
+                        }
+                        // For reasons I could not understand, Android SDK is failing to find the
+                        // constant MediaStore.Audio.Media.ALBUM_ARTIST in pre-compilation time and
+                        // obligated me to reference the column string value.
+                        // However it's working just fine.
+                        values.put("album_artist", argMusicArtist);
+
+                        values.put(IS_PENDING, 1);
+                        log("insert " + values + " to MediaStore");
+                        ContentResolver contentResolver =
+                                getApplicationContext().getContentResolver();
+                        Uri uriSavedMusic = contentResolver
+                                .insert(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, values);
+                        if (uriSavedMusic != null) {
+                            values.clear();
+                            values.put(IS_PENDING, 0);
+                            contentResolver.update(uriSavedMusic, values, null, null);
+                        }
+
+                        if (android.os.Build.VERSION.SDK_INT < 29)
+                            callScanFileIntent(file);
+                    } else {
+                        callScanFileIntent(file);
+                    }
+                }
             }
+        }
+    }
+
+    private void callScanFileIntent(File file) {
+        Intent scanFileIntent =
+                new Intent(Intent.ACTION_MEDIA_SCANNER_SCAN_FILE, Uri.fromFile(file));
+        getApplicationContext().sendBroadcast(scanFileIntent);
+    }
+
+    private void log(String message) {
+        if (debug) {
+            Log.d(TAG, message);
         }
     }
 }

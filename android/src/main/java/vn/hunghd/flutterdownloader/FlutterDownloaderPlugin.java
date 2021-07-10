@@ -1,9 +1,15 @@
 package vn.hunghd.flutterdownloader;
 
 import android.annotation.SuppressLint;
+import android.content.ContentResolver;
+import android.content.ContentUris;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.provider.MediaStore;
+import android.text.TextUtils;
+import android.database.Cursor;
+import android.net.Uri;
 
 import androidx.core.app.NotificationManagerCompat;
 
@@ -11,10 +17,12 @@ import java.io.File;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Arrays;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
+import android.net.Uri;
 import androidx.work.BackoffPolicy;
 import androidx.work.Constraints;
 import androidx.work.Data;
@@ -43,6 +51,7 @@ public class FlutterDownloaderPlugin implements MethodCallHandler, FlutterPlugin
     private TaskDao taskDao;
     private Context context;
     private long callbackHandle;
+    private int debugMode;
     private final Object initializationLock = new Object();
 
     @SuppressLint("NewApi")
@@ -101,17 +110,22 @@ public class FlutterDownloaderPlugin implements MethodCallHandler, FlutterPlugin
 
     @Override
     public void onAttachedToEngine(FlutterPluginBinding binding) {
-        onAttachedToEngine(binding.getApplicationContext(), binding.getFlutterEngine().getDartExecutor());
+        onAttachedToEngine(binding.getApplicationContext(), binding.getBinaryMessenger());
     }
 
     @Override
     public void onDetachedFromEngine(FlutterPluginBinding binding) {
         context = null;
-        flutterChannel.setMethodCallHandler(null);
-        flutterChannel = null;
+        if (flutterChannel != null) {
+            flutterChannel.setMethodCallHandler(null);
+            flutterChannel = null;
+        }
     }
 
-    private WorkRequest buildRequest(String url, String savedDir, String filename, String headers, boolean showNotification, boolean openFileFromNotification, boolean isResume, boolean requiresStorageNotLow) {
+    private WorkRequest buildRequest(String url, String savedDir, String filename, String headers,
+                                     boolean showNotification, boolean openFileFromNotification,
+                                     boolean isResume, boolean requiresStorageNotLow, String albumName,
+                                     String artistName, String artistId, String playlistId, String albumId, String musicId) {
         WorkRequest request = new OneTimeWorkRequest.Builder(DownloadWorker.class)
                 .setConstraints(new Constraints.Builder().setRequiresStorageNotLow(requiresStorageNotLow)
                         .setRequiredNetworkType(NetworkType.CONNECTED).build())
@@ -123,22 +137,33 @@ public class FlutterDownloaderPlugin implements MethodCallHandler, FlutterPlugin
                         .putBoolean(DownloadWorker.ARG_SHOW_NOTIFICATION, showNotification)
                         .putBoolean(DownloadWorker.ARG_OPEN_FILE_FROM_NOTIFICATION, openFileFromNotification)
                         .putBoolean(DownloadWorker.ARG_IS_RESUME, isResume)
-                        .putLong(DownloadWorker.ARG_CALLBACK_HANDLE, callbackHandle).build())
+                        .putLong(DownloadWorker.ARG_CALLBACK_HANDLE, callbackHandle)
+                        .putBoolean(DownloadWorker.ARG_DEBUG, debugMode == 1)
+                        .putString(DownloadWorker.ARG_MUSIC_ALBUM, albumName)
+                        .putString(DownloadWorker.ARG_MUSIC_ARTIST, artistName)
+                        .putString(DownloadWorker.ARG_ARTIST_ID, artistId)
+                        .putString(DownloadWorker.ARG_PLAYLIST_ID, playlistId)
+                        .putString(DownloadWorker.ARG_ALBUM_ID, albumId)
+                        .putString(DownloadWorker.ARG_MUSIC_ID, musicId)
+                        .build()
+                )
                 .build();
         return request;
     }
 
-    private void sendUpdateProgress(String id, int status, int progress) {
+    private void sendUpdateProgress(String id, int status, int progress,String obs) {
         Map<String, Object> args = new HashMap<>();
         args.put("task_id", id);
         args.put("status", status);
         args.put("progress", progress);
+        args.put("obs", obs);
         flutterChannel.invokeMethod("updateProgress", args);
     }
 
     private void initialize(MethodCall call, MethodChannel.Result result) {
         List args = (List) call.arguments;
         long callbackHandle = Long.parseLong(args.get(0).toString());
+        debugMode = Integer.parseInt(args.get(1).toString());
 
         SharedPreferences pref = context.getSharedPreferences(SHARED_PREFERENCES_KEY, Context.MODE_PRIVATE);
         pref.edit().putLong(CALLBACK_DISPATCHER_HANDLE_KEY, callbackHandle).apply();
@@ -157,17 +182,23 @@ public class FlutterDownloaderPlugin implements MethodCallHandler, FlutterPlugin
         String savedDir = call.argument("saved_dir");
         String filename = call.argument("file_name");
         String headers = call.argument("headers");
+        String albumName = call.argument("music_album");
+        String artistName = call.argument("music_artist");
+        String artistId = call.argument("artist_id");
+        String playlistId = call.argument("playlist_id");
+        String albumId = call.argument("album_id");
+        String musicId = call.argument("music_id");
         boolean showNotification = call.argument("show_notification");
         boolean openFileFromNotification = call.argument("open_file_from_notification");
         boolean requiresStorageNotLow = call.argument("requires_storage_not_low");
         WorkRequest request = buildRequest(url, savedDir, filename, headers, showNotification, openFileFromNotification,
-                false, requiresStorageNotLow);
+                false, requiresStorageNotLow, albumName, artistName, artistId, playlistId, albumId, musicId);
         WorkManager.getInstance(context).enqueue(request);
         String taskId = request.getId().toString();
         result.success(taskId);
-        sendUpdateProgress(taskId, DownloadStatus.ENQUEUED, 0);
+        sendUpdateProgress(taskId, DownloadStatus.ENQUEUED, 0,"");
         taskDao.insertOrUpdateNewTask(taskId, url, DownloadStatus.ENQUEUED, 0, filename, savedDir, headers,
-                showNotification, openFileFromNotification);
+                showNotification, openFileFromNotification, albumName, artistName, artistId, playlistId, albumId, musicId);
     }
 
     private void enqueueItems(MethodCall call, MethodChannel.Result result) {
@@ -184,15 +215,23 @@ public class FlutterDownloaderPlugin implements MethodCallHandler, FlutterPlugin
             String url = downloads.get(i).get("url");
             String savedDir = downloads.get(i).get("saved_dir");
             String filename = downloads.get(i).get("file_name");
+            String albumName = downloads.get(i).get("music_album");
+            String artistName = downloads.get(i).get("music_artist");
+            String artistId = downloads.get(i).get("artist_id");
+            String playlistId = downloads.get(i).get("playlist_id");
+            String albumId = downloads.get(i).get("album_id");
+            String musicId = downloads.get(i).get("music_id");
 
             WorkRequest request = buildRequest(url, savedDir, filename, headers, showNotification,
-                    openFileFromNotification, false, requiresStorageNotLow);
+                    openFileFromNotification, false, requiresStorageNotLow, albumName, artistName,
+                    artistId, playlistId, albumId, musicId);
             WorkManager.getInstance(context).enqueue(request);
             String taskId = request.getId().toString();
             taskIds.add(taskId);
-            sendUpdateProgress(taskId, DownloadStatus.ENQUEUED, 0);
+            sendUpdateProgress(taskId, DownloadStatus.ENQUEUED, 0,"");
             taskDao.insertOrUpdateNewTask(taskId, url, DownloadStatus.ENQUEUED, 0, filename, savedDir, headers,
-                    showNotification, openFileFromNotification);
+                    showNotification, openFileFromNotification, albumName, artistName,
+                    artistId, playlistId, albumId, musicId);
         }
 
         result.success(taskIds);
@@ -210,6 +249,12 @@ public class FlutterDownloaderPlugin implements MethodCallHandler, FlutterPlugin
             item.put("file_name", task.filename);
             item.put("saved_dir", task.savedDir);
             item.put("time_created", task.timeCreated);
+            item.put("music_album", task.albumName);
+            item.put("music_artist", task.artistName);
+            item.put("artist_id", task.artistId);
+            item.put("playlist_id", task.playlistId);
+            item.put("album_id", task.albumId);
+            item.put("music_id", task.musicId);
             array.add(item);
         }
         result.success(array);
@@ -228,6 +273,12 @@ public class FlutterDownloaderPlugin implements MethodCallHandler, FlutterPlugin
             item.put("file_name", task.filename);
             item.put("saved_dir", task.savedDir);
             item.put("time_created", task.timeCreated);
+            item.put("music_album", task.albumName);
+            item.put("music_artist", task.artistName);
+            item.put("artist_id", task.artistId);
+            item.put("playlist_id", task.playlistId);
+            item.put("album_id", task.albumId);
+            item.put("music_id", task.musicId);
             array.add(item);
         }
         result.success(array);
@@ -255,7 +306,9 @@ public class FlutterDownloaderPlugin implements MethodCallHandler, FlutterPlugin
         String taskId = call.argument("task_id");
         DownloadTask task = taskDao.loadTask(taskId);
         boolean requiresStorageNotLow = call.argument("requires_storage_not_low");
+        String headers = call.argument("headers");
         if (task != null) {
+            final String  finalHeaders = TextUtils.isEmpty(headers) ? task.headers : headers;
             if (task.status == DownloadStatus.PAUSED) {
                 String filename = task.filename;
                 if (filename == null) {
@@ -264,11 +317,12 @@ public class FlutterDownloaderPlugin implements MethodCallHandler, FlutterPlugin
                 String partialFilePath = task.savedDir + File.separator + filename;
                 File partialFile = new File(partialFilePath);
                 if (partialFile.exists()) {
-                    WorkRequest request = buildRequest(task.url, task.savedDir, task.filename, task.headers,
-                            task.showNotification, task.openFileFromNotification, true, requiresStorageNotLow);
+                    WorkRequest request = buildRequest(task.url, task.savedDir, task.filename, finalHeaders,
+                            task.showNotification, task.openFileFromNotification, true, requiresStorageNotLow,
+                            task.albumName, task.artistName, task.artistId, task.playlistId, task.albumId, task.musicId);
                     String newTaskId = request.getId().toString();
                     result.success(newTaskId);
-                    sendUpdateProgress(newTaskId, DownloadStatus.RUNNING, task.progress);
+                    sendUpdateProgress(newTaskId, DownloadStatus.RUNNING, task.progress,"");
                     taskDao.updateTask(taskId, newTaskId, DownloadStatus.RUNNING, task.progress, false);
                     WorkManager.getInstance(context).enqueue(request);
                 } else {
@@ -287,13 +341,16 @@ public class FlutterDownloaderPlugin implements MethodCallHandler, FlutterPlugin
         String taskId = call.argument("task_id");
         DownloadTask task = taskDao.loadTask(taskId);
         boolean requiresStorageNotLow = call.argument("requires_storage_not_low");
+        String headers = call.argument("headers");
         if (task != null) {
             if (task.status == DownloadStatus.FAILED || task.status == DownloadStatus.CANCELED) {
-                WorkRequest request = buildRequest(task.url, task.savedDir, task.filename, task.headers,
-                        task.showNotification, task.openFileFromNotification, false, requiresStorageNotLow);
+                final String  finalHeaders = TextUtils.isEmpty(headers) ? task.headers : headers;
+                WorkRequest request = buildRequest(task.url, task.savedDir, task.filename, finalHeaders,
+                        task.showNotification, task.openFileFromNotification, false, requiresStorageNotLow,
+                        task.albumName, task.artistName, task.artistId, task.playlistId, task.albumId, task.musicId);
                 String newTaskId = request.getId().toString();
                 result.success(newTaskId);
-                sendUpdateProgress(newTaskId, DownloadStatus.ENQUEUED, task.progress);
+                sendUpdateProgress(newTaskId, DownloadStatus.ENQUEUED, task.progress,"");
                 taskDao.updateTask(taskId, newTaskId, DownloadStatus.ENQUEUED, task.progress, false);
                 WorkManager.getInstance(context).enqueue(request);
             } else {
@@ -341,14 +398,31 @@ public class FlutterDownloaderPlugin implements MethodCallHandler, FlutterPlugin
             }
             if (shouldDeleteContent) {
                 String filename = task.filename;
+                String extension = "";
+                List<String> audioExtension = Arrays.asList("mp3", "m4a", "ogg");
+
                 if (filename == null) {
                     filename = task.url.substring(task.url.lastIndexOf("/") + 1, task.url.length());
                 }
+                int i = filename.lastIndexOf('.');
+                if (i > 0) {
+                    extension = filename.toLowerCase().substring(i + 1);
+                }
 
                 String saveFilePath = task.savedDir + File.separator + filename;
+                if (audioExtension.contains(extension)) {
+                    Uri rootUri = MediaStore.Audio.Media.getContentUriForPath(saveFilePath);
+                    context.getContentResolver().delete(rootUri,
+                            MediaStore.MediaColumns.DATA + "=?", new String[] {saveFilePath});
+                }
                 File tempFile = new File(saveFilePath);
                 if (tempFile.exists()) {
+                    deleteFileInMediaStore(tempFile);
                     tempFile.delete();
+                }
+                File directory = new File(task.savedDir);
+                if (directory.exists() && directory.isDirectory() && directory.list().length == 0) {
+                    directory.delete();
                 }
             }
             taskDao.deleteTask(taskId);
@@ -359,5 +433,43 @@ public class FlutterDownloaderPlugin implements MethodCallHandler, FlutterPlugin
         } else {
             result.error("invalid_task_id", "not found task corresponding to given task id", null);
         }
+    }
+
+    private void deleteFileInMediaStore(File file) {
+        // Set up the projection (we only need the ID)
+        String[] projection = {MediaStore.Images.Media._ID};
+
+        // Match on the file path
+        String imageSelection = MediaStore.Images.Media.DATA + " = ?";
+        String videoSelection = MediaStore.Video.Media.DATA + " = ?";
+        String[] selectionArgs = new String[]{file.getAbsolutePath()};
+
+        // Query for the ID of the media matching the file path
+        Uri imageQueryUri = MediaStore.Images.Media.EXTERNAL_CONTENT_URI;
+        Uri videoQueryUri = MediaStore.Video.Media.EXTERNAL_CONTENT_URI;
+
+        ContentResolver contentResolver = context.getContentResolver();
+
+        // search the file in image store first
+        Cursor imageCursor = contentResolver.query(imageQueryUri, projection, imageSelection, selectionArgs, null);
+        if (imageCursor != null && imageCursor.moveToFirst()) {
+            // We found the ID. Deleting the item via the content provider will also remove the file
+            long id = imageCursor.getLong(imageCursor.getColumnIndexOrThrow(MediaStore.Images.Media._ID));
+            Uri deleteUri = ContentUris.withAppendedId(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, id);
+            contentResolver.delete(deleteUri, null, null);
+        } else {
+            // File not found in image store DB, try to search in video store
+            Cursor videoCursor = contentResolver.query(imageQueryUri, projection, imageSelection, selectionArgs, null);
+            if (videoCursor != null && videoCursor.moveToFirst()) {
+                // We found the ID. Deleting the item via the content provider will also remove the file
+                long id = videoCursor.getLong(videoCursor.getColumnIndexOrThrow(MediaStore.Images.Media._ID));
+                Uri deleteUri = ContentUris.withAppendedId(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, id);
+                contentResolver.delete(deleteUri, null, null);
+            } else {
+                // can not find the file in media store DB at all
+            }
+            if (videoCursor != null) videoCursor.close();
+        }
+        if (imageCursor != null) imageCursor.close();
     }
 }
